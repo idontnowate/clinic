@@ -8,7 +8,7 @@ const CLOUD = {
   // مشروع Supabase خاص بالعيادات (منفصل تمامًا عن مشروع المتجر)
   url: 'https://yukyibwkxwkssirhdhfg.supabase.co',
   // المفتاح العام (Publishable أو anon) من Project Settings ← API Keys
-  key: 'PASTE_PUBLISHABLE_KEY',
+  key: 'sb_publishable_T7Dhh0i4Vx9RZ7mVuHHbJw_pC3mOMnO',
   lib: 'vendor/supabase-js-2.45.4.js',
   // مفتاح جلسة خاص بالعيادة: المتجر والعيادة على نفس الموقع (github.io)، فلا تتداخل جلستاهما
   storageKey: 'clinic-auth',
