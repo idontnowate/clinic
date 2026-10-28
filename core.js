@@ -118,7 +118,7 @@ const byId = (col, id) => IDX[col].get(id);
 const pat = id => byId('patients', id);
 const pName = id => pat(id)?.name || 'مريض محذوف';
 const fileNo = p => '#' + String(p?.fileNo || 0).padStart(4, '0');
-const isReady = () => app.mode === 'local' || app.mode === 'device' ||(app.mode === 'live' && app.loaded.size >= COLS.length);
+const isReady = () => app.mode === 'local' || app.mode === 'device' || app.mode === 'cloud' || (app.mode === 'live' && app.loaded.size >= COLS.length);
 const W = () => app.canWrite;
 const docName = () => S.doctorName ? 'د. ' + S.doctorName : 'الطبيب';
 const clinicName = () => S.clinicName || (S.doctorName ? 'عيادة د. ' + S.doctorName : 'العيادة');
@@ -211,6 +211,9 @@ async function save(col, obj) {
   if (app.mode === 'live') {
     try { await app.db.collection(col).doc(obj.id).set(body); }
     catch (e) { toast(writeErr(e)); throw e; }
+  } else if (app.mode === 'cloud') {
+    try { await Cloud.put(col, obj.id, body); }
+    catch (e) { toast(Cloud.writeMsg(e)); throw e; }
   } else if (app.mode === 'device') {
     try { await IDB.put(col + '/' + obj.id, body); }
     catch (e) { toast('تعذّر الحفظ في ذاكرة الجهاز. قد تكون المساحة ممتلئة.'); throw e; }
@@ -228,6 +231,9 @@ async function remove(col, id) {
   if (app.mode === 'live') {
     try { await app.db.collection(col).doc(id).delete(); }
     catch (e) { toast(writeErr(e)); throw e; }
+  } else if (app.mode === 'cloud') {
+    try { await Cloud.put(col, id, {}, true); }
+    catch (e) { toast(Cloud.writeMsg(e)); throw e; }
   } else if (app.mode === 'device') await IDB.del(col + '/' + id);
   applyLocal(col, { id }, true);
   scheduleRender();
@@ -237,6 +243,9 @@ async function saveSettings(next) {
   if (app.mode === 'live') {
     try { await app.db.doc('settings/clinic').set(JSON.parse(JSON.stringify(s))); }
     catch (e) { toast(writeErr(e)); throw e; }
+  } else if (app.mode === 'cloud') {
+    try { await Cloud.put('settings', 'clinic', JSON.parse(JSON.stringify(s))); }
+    catch (e) { toast(Cloud.writeMsg(e)); throw e; }
   } else if (app.mode === 'device') await IDB.put('settings/clinic', JSON.parse(JSON.stringify(s)));
   S = s; applySettings(); scheduleRender();
 }
@@ -256,14 +265,16 @@ const NAV = [
   ['settings', 'الإعدادات', '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>']
 ];
 const TOP_ROUTES = NAV.map(n => n[0]);
+const canSee = route => !(app.role === 'staff' && STAFF_HIDDEN.includes(route));
 const icon = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 
 function buildNav() {
   const waiting = D.appointments.filter(a => a.date === today() && a.status === 'waiting').length;
   const top = TOP_ROUTES.includes(ui.route) ? ui.route : (ui.route === 'patient' || ui.route === 'visit' ? 'patients' : 'home');
-  $('#nav').innerHTML = NAV.map(([k, t, p]) => `<button data-act="nav" data-id="${k}" ${top === k ? 'aria-current="page"' : ''}>${icon(p)}<span>${t}</span>${k === 'home' && waiting ? `<span class="badge" title="في الانتظار">${waiting}</span>` : ''}</button>`).join('');
-  $('#topActs').innerHTML = W() ? `<button class="btn" data-act="newAppt">${icon('<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M12 13v5M9.5 15.5h5"/>')}موعد</button><button class="btn primary" data-act="newPatient">${icon('<path d="M12 5v14M5 12h14"/>')}مريض جديد</button>` : '';
-  const modeTxt = app.mode === 'live' ? '<span class="dot live"></span>متصل — البيانات محفوظة' : app.mode === 'device' ? '<span class="dot live"></span>محفوظ على هذا الجهاز' : app.mode === 'local' ? '<span class="dot local"></span>عرض محلي — لا يُحفظ' : '<span class="dot"></span>جارٍ الاتصال…';
+  $('#nav').innerHTML = NAV.filter(n => canSee(n[0])).map(([k, t, p]) => `<button data-act="nav" data-id="${k}" ${top === k ? 'aria-current="page"' : ''}>${icon(p)}<span>${t}</span>${k === 'home' && waiting ? `<span class="badge" title="في الانتظار">${waiting}</span>` : ''}</button>`).join('');
+  const acct = app.mode === 'cloud' && Cloud.member ? `<button class="btn ghost" data-act="account" title="حسابي">${icon('<circle cx="12" cy="8" r="4"/><path d="M4 21c.6-4 3.9-6.5 8-6.5s7.4 2.5 8 6.5"/>')}<span class="acct-n">${esc(Cloud.member.display_name || Cloud.member.username)}</span></button>` : '';
+  $('#topActs').innerHTML = acct + (W() ? `<button class="btn" data-act="newAppt">${icon('<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M12 13v5M9.5 15.5h5"/>')}موعد</button><button class="btn primary" data-act="newPatient">${icon('<path d="M12 5v14M5 12h14"/>')}مريض جديد</button>` : '');
+  const modeTxt = app.mode === 'cloud' ? `<span class="dot ${navigator.onLine === false ? 'local' : 'live'}"></span>${navigator.onLine === false ? 'بلا إنترنت — للاطلاع فقط' : 'متصل — البيانات محفوظة في الحساب'}` : app.mode === 'live' ? '<span class="dot live"></span>متصل — البيانات محفوظة' : app.mode === 'device' ? '<span class="dot live"></span>محفوظ على هذا الجهاز' : app.mode === 'local' ? '<span class="dot local"></span>عرض محلي — لا يُحفظ' : '<span class="dot"></span>جارٍ الاتصال…';
   $('#sideFoot').innerHTML = `<div><b>${esc(fmtDayFull(today()))}</b></div><div>${modeTxt}</div>`;
 }
 function applySettings() {
@@ -276,12 +287,13 @@ function banner() {
   let h = '';
   if (app.mode === 'local') h = 'وضع العرض المحلي: قاعدة البيانات غير متاحة في هذا العرض، لذلك تبقى التعديلات حتى إغلاق الصفحة فقط. افتح الرابط من claude.ai لحفظ بيانات العيادة.';
   else if (app.mode === 'device' && backupDue()) h = `البيانات محفوظة في متصفح هذا الجهاز فقط. ${S.lastBackup ? 'آخر نسخة احتياطية قبل ' + daysBetween(S.lastBackup, today()) + ' يوم' : 'لم تنزّل نسخة احتياطية بعد'}. <button class="btn sm" data-act="backup" style="margin-inline-start:8px">نزّل نسخة الآن</button>`;
+  else if (app.mode === 'cloud') { b.innerHTML = Cloud.bannerHtml(); return; }
   else if (app.mode === 'live' && !W()) h ='لديك صلاحية الاطلاع فقط. اطلب من الطبيب صلاحية «مساهم» من قائمة المشاركة لإضافة السجلات وتعديلها.';
   b.innerHTML = h ? `<div class="banner">${h}</div>` : '';
 }
 const backupDue = () => D.patients.length > 0 && (!S.lastBackup || daysBetween(S.lastBackup, today()) >= 7);
 function nav(route, param = null, opts = {}) {
-  if (!VIEWS[route]) route = 'home';
+  if (!VIEWS[route] || !canSee(route)) route = 'home';
   if (VIEWS[ui.route]?.leave) VIEWS[ui.route].leave();
   ui.route = route; ui.param = param;
   if (TOP_ROUTES.includes(route)) { try { history.replaceState(null, '', '#' + route); } catch (e) { } }
@@ -506,6 +518,10 @@ const App = {
     setInterval(() => { if (ui.route === 'home' && $('#overlay').hidden) renderBody(); }, 60000);
     setInterval(() => { if (ui.route === 'tv') renderBody(); }, 20000);
     const c = window.claude;
+    if ((!c || typeof c.use !== 'function') && Cloud.enabled) {
+      // standalone with accounts: login, then the clinic's data from Supabase
+      await Cloud.boot(); return;
+    }
     if (!c || typeof c.use !== 'function') {
       // standalone (GitHub Pages or a local file): keep records in this browser
       try {
