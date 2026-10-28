@@ -86,6 +86,40 @@ small.cur{font-size:.78em;color:var(--muted);font-weight:500}
 #banner:empty{display:none}
 #banner{padding-inline:20px;padding-top:12px}
 .banner{background:var(--warn-soft);color:var(--warn);padding:9px 14px;border-radius:8px;font-size:.9rem}
+.banner.bad{background:var(--danger-soft);color:var(--danger)}
+/* login: the clinic's front door — dark side colour carries the brand, the form sits on paper */
+.login{position:fixed;inset:0;z-index:80;background:var(--bg);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);overflow-y:auto}
+.lg-brand{background:var(--side);color:var(--side-ink);display:flex;flex-direction:column;justify-content:space-between;padding:max(40px,env(safe-area-inset-top,0px)) 48px 32px;gap:28px}
+.lg-brand .mark{width:52px;height:52px;border-radius:14px}
+.lg-brand .mark svg{width:28px;height:28px}
+.lg-brand h1{font-family:var(--f-display);font-size:clamp(1.7rem,3vw,2.5rem);line-height:1.25;margin:22px 0 10px;color:#fff;text-wrap:balance}
+.lg-brand p{margin:0;color:var(--side-muted);max-width:34ch;font-size:1rem}
+.lg-brand ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;font-size:.95rem}
+.lg-brand li{display:flex;gap:10px;align-items:center}
+.lg-brand li::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent-2);flex:none}
+.lg-brand small{color:var(--side-muted);font-size:.82rem}
+.lg-main{display:grid;place-items:center;padding:40px 24px max(40px,env(safe-area-inset-bottom,0px))}
+.lg-card{width:100%;max-width:380px;display:flex;flex-direction:column;gap:16px}
+.lg-card h2{font-family:var(--f-display);font-size:1.6rem;margin:0;line-height:1.3}
+.lg-card .sub{color:var(--muted);margin:-10px 0 4px;font-size:.95rem}
+.lg-card label{display:flex;flex-direction:column;gap:6px;font-size:.88rem;font-weight:600;color:var(--ink-2)}
+.lg-card input{border:1px solid var(--line-2);background:var(--surface);border-radius:10px;padding:11px 14px;font-size:1rem;width:100%}
+.lg-card input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+.lg-pass{position:relative}
+.lg-pass input{padding-inline-end:72px}
+.lg-pass button{position:absolute;inset-inline-end:6px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--accent);font-weight:600;font-size:.85rem;padding:6px 10px;border-radius:7px;cursor:pointer}
+.lg-pass button:hover{background:var(--accent-soft)}
+.lg-card .btn.primary{justify-content:center;padding:11px 16px;font-size:1rem;font-weight:700}
+.lg-card .err{margin:0}
+.lg-help{color:var(--muted);font-size:.85rem;text-align:center;border-top:1px solid var(--line);padding-top:14px}
+.lg-help a{color:var(--accent);font-weight:600}
+@media (max-width:820px){
+  .login{grid-template-columns:minmax(0,1fr);align-content:start}
+  .lg-brand{padding:max(22px,env(safe-area-inset-top,0px)) 16px 22px;gap:0}
+  .lg-brand h1{font-size:1.4rem;margin:12px 0 4px}
+  .lg-brand ul,.lg-brand small{display:none}
+  .lg-main{padding:28px 16px}
+}
 #view{padding-block:22px 80px;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:20px;max-width:1320px;width:100%}
 
 /* ---------- primitives ---------- */
@@ -454,6 +488,32 @@ body.tv-mode #view{max-width:none;padding:0}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:pop .16s ease-out}@keyframes pop{from{transform:translateY(10px);opacity:.5}to{transform:none;opacity:1}}}
 </style>
 
+<div class="login" id="login" dir="rtl" lang="ar" hidden>
+  <section class="lg-brand">
+    <div>
+      <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9.2 3h5.6v6.2H21v5.6h-6.2V21H9.2v-6.2H3V9.2h6.2z" fill="#fff"/></svg></span>
+      <h1>نظام إدارة العيادة</h1>
+      <p>المواعيد، ملفات المرضى، الوصفات، والحسابات — في مكان واحد ومحمي.</p>
+    </div>
+    <ul>
+      <li>بيانات عيادتك محفوظة في حسابها ولا يراها غيرك</li>
+      <li>نفس البيانات على جهاز الطبيب والسكرتير</li>
+      <li>الدخول باسم مستخدم وكلمة مرور لكل شخص</li>
+    </ul>
+    <small>إذا نسيت كلمة المرور تواصل مع إدارة البرنامج لتعيينها.</small>
+  </section>
+  <main class="lg-main">
+    <form class="lg-card" id="lgForm" novalidate>
+      <h2>تسجيل الدخول</h2>
+      <p class="sub">أدخل اسم المستخدم وكلمة المرور الخاصة بعيادتك.</p>
+      <label>اسم المستخدم<input id="lgUser" name="username" autocomplete="username" autocapitalize="off" spellcheck="false" dir="ltr" required></label>
+      <label>كلمة المرور<span class="lg-pass"><input id="lgPass" name="password" type="password" autocomplete="current-password" dir="ltr" required><button type="button" id="lgEye" aria-pressed="false" aria-label="إظهار كلمة المرور">إظهار</button></span></label>
+      <div class="err" id="lgErr" role="alert" hidden></div>
+      <button class="btn primary" id="lgBtn" type="submit">دخول</button>
+      <div class="lg-help">ليس لديك حساب؟ للاشتراك تواصل على <a class="ltr" id="lgSupport" href="#"></a></div>
+    </form>
+  </main>
+</div>
 <div class="app" dir="rtl" lang="ar">
   <aside class="side">
     <div class="brand">
@@ -490,6 +550,7 @@ body.tv-mode #view{max-width:none;padding:0}
 <script src="patient.js" charset="utf-8"></script>
 <script src="finance.js" charset="utf-8"></script>
 <script src="extras.js" charset="utf-8"></script>
+<script src="cloud.js" charset="utf-8"></script>
 <script>App.start();</script>
 
 </body></html>

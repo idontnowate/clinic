@@ -415,7 +415,7 @@ VIEWS.settings = {
       const counts = COLS.map(c => [c, D[c].length]);
       const label = { patients: 'مرضى', appointments: 'مواعيد', visits: 'كشوفات', invoices: 'فواتير', expenses: 'مصروفات', inventory: 'أصناف مخزون', meds: 'أدوية', services: 'خدمات', files: 'مرفقات', reports: 'مستندات' };
       const total = sum(counts, c => c[1]);
-      return `<div style="max-width:820px" class="stack"><section class="panel"><div class="ph"><h3>محتوى قاعدة البيانات</h3><span class="muted">${total} سجل من أصل 25,000 متاح</span></div><div class="pb"><div class="chips">${counts.map(([c, n]) => `<span class="chip" style="padding:2px 12px">${label[c]}: <b>${n}</b></span>`).join('')}</div></div></section>
+      return `<div style="max-width:820px" class="stack"><section class="panel"><div class="ph"><h3>محتوى قاعدة البيانات</h3><span class="muted">${total} سجل${app.mode === 'live' ? ' من أصل 25,000 متاح' : ''}</span></div><div class="pb"><div class="chips">${counts.map(([c, n]) => `<span class="chip" style="padding:2px 12px">${label[c]}: <b>${n}</b></span>`).join('')}</div></div></section>
         <section class="panel"><div class="ph"><h3>النسخ الاحتياطي</h3></div><div class="pb" style="display:flex;flex-direction:column;gap:10px">
           <div>نزّل نسخة كاملة من بيانات العيادة (بدون الملفات المرفقة) واحفظها على جهازك أسبوعيًا.</div>
           <div class="m-foot" style="padding:0"><button class="btn primary" data-act="backup">تنزيل نسخة احتياطية (JSON)</button><button class="btn" data-act="exportPatients">تصدير المرضى (CSV)</button><button class="btn" data-act="exportVisits">تصدير الكشوفات (CSV)</button></div>
@@ -483,6 +483,10 @@ CHG.restore = async t => {
   if (!data || data.app !== 'clinic') { toast('هذا الملف ليس نسخة احتياطية من هذا النظام.'); return; }
   const n = sum(COLS, c => (data[c] || []).length);
   confirmBox(`استعادة ${n} سجل من نسخة ${esc(String(data.exportedAt || '').slice(0, 10))}؟ ستُحدَّث السجلات المطابقة وتُضاف الجديدة.`, async () => {
+    if (app.mode === 'cloud') {
+      const r = await Cloud.importData(data, (a, b) => toast(`جارٍ الاستعادة… ${a}/${b}`));
+      toast(`اكتملت استعادة ${r.done} سجل`); return;
+    }
     let done = 0;
     for (const c of COLS) for (const row of (data[c] || [])) { if (row && row.id) { await save(c, row); done++; if (done % 25 === 0) toast(`جارٍ الاستعادة… ${done}/${n}`); } }
     if (data.settings) await saveSettings(data.settings);

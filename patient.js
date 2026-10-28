@@ -152,14 +152,14 @@ function pLabs(p, { labs }) {
   return `<div class="tbl"><table><thead><tr><th>الفحص</th><th>تاريخ الطلب</th><th>النتيجة</th><th>تاريخ النتيجة</th><th></th></tr></thead><tbody>${labs.map(({ v, l, i }) => `<tr><td><b>${esc(l.name)}</b></td><td class="muted">${esc(fmtDate(v.date))}</td><td>${l.result ? `<span style="white-space:pre-wrap">${esc(l.result)}</span>${l.flag === 'abnormal' ? ' ' + pill('bad', 'غير طبيعي') : l.flag === 'normal' ? ' ' + pill('ok', 'طبيعي') : ''}` : pill('warn', 'بانتظار النتيجة')}</td><td class="muted">${l.resultDate ? esc(fmtDate(l.resultDate)) : ''}</td><td><div class="acts">${W() ? `<button class="btn sm" data-act="labResult" data-id="${v.id}|${i}">${l.result ? 'تعديل' : 'إدخال النتيجة'}</button>` : ''}</div></td></tr>`).join('')}</tbody></table></div>`;
 }
 function pFiles(p, { files }) {
-  const can = (!!app.assets || app.mode === 'device') && W();
+  const can = (!!app.assets || app.mode === 'device' || app.mode === 'cloud') && W();
   let h = `<div class="head" style="margin-bottom:12px"><div class="grow muted" style="font-size:.9rem">صور التحاليل والسونار والأشعة والتقارير الخارجية (صور أو PDF حتى ${app.mode === 'device' ? 8 : 20} ميغابايت).</div>${can ? `<label class="btn primary" style="cursor:pointer">${icon('<path d="M12 16V4M7 9l5-5 5 5M5 20h14"/>')}رفع ملف<input type="file" id="upFile" accept="image/*,application/pdf" data-change="upload" data-pid="${p.id}" hidden multiple></label>` : ''}</div>`;
   if (!can && W()) h +=`<div class="banner" style="margin-bottom:12px">رفع الملفات متاح لمالك العيادة ومن لديه صلاحية «محرر»، وعند فتح الصفحة من claude.ai.</div>`;
   if (!files.length) return h + `<div class="panel"><div class="empty"><b>لا مرفقات</b>ارفع صورة تحليل أو أشعة لتبقى في ملف المريض.</div></div>`;
   return h + `<div class="files">${[...files].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(f => {
-    const src = f.data || '/_blob/' + f.assetId;
+    const src = f.data || (f.path ? Cloud.thumb(f.path) : '/_blob/' + f.assetId);
     const isImg = (f.type || '').startsWith('image/');
-    const open = f.data ? `data-act="openFile" data-id="${f.id}" href="#"` : `href="${src}" target="_blank" rel="noopener"`;
+    const open = f.data || f.path ? `data-act="openFile" data-id="${f.id}" href="#"` : `href="${src}" target="_blank" rel="noopener"`;
     return `<div class="file"><a class="th" ${open}>${isImg ? `<img src="${src}" alt="${esc(f.name)}" loading="lazy" data-blob="1">` : icon('<path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4M9 13h6M9 17h6"/>')}</a>
       <div class="fi"><b title="${esc(f.name)}">${esc(f.title || f.name)}</b><span class="muted">${esc(f.cat || '')} · ${esc(fmtShort(f.date))}</span></div>
       <div class="fa"><a class="btn sm" ${open}>فتح</a>${W() ?`<button class="btn sm ghost danger" data-act="delFile" data-id="${f.id}">حذف</button>` : ''}</div></div>`;
@@ -238,7 +238,7 @@ ACT.labResult = key => {
 /* ---------- attachments ---------- */
 CHG.upload = async t => {
   const pid = t.dataset.pid, fl = [...t.files]; t.value = '';
-  if (!fl.length || !(app.assets || app.mode === 'device')) return;
+  if (!fl.length || !(app.assets || app.mode === 'device' || app.mode === 'cloud')) return;
   const f0 = fl[0];
   openModal(fl.length > 1 ? `رفع ${fl.length} ملفات` : 'رفع ملف', `<form id="mForm" class="form">
     <div class="full muted">${fl.map(f => esc(f.name)).join('<br>')}</div>
@@ -256,6 +256,16 @@ CHG.upload = async t => {
           await save('files', { id: uid('f'), patientId: pid, data, name: f.name, title: fl.length === 1 ? (d.title || f.name) : f.name.replace(/\.[^.]+$/, ''), type: f.type, size: f.size, cat: d.cat, date: d.date || today() });
           ok++; continue;
         }
+        if (app.mode === 'cloud') {
+          try {
+            const r = await Cloud.upload(f);
+            await save('files', { id: uid('f'), patientId: pid, path: r.path, name: f.name, title: fl.length === 1 ? (d.title || f.name) : f.name.replace(/\.[^.]+$/, ''), type: r.contentType, size: r.sizeBytes, cat: d.cat, date: d.date || today() });
+            ok++;
+          } catch (e) {
+            toast(f.name + ': ' + ({ cloud_too_large: 'الملف كبير جدًا', cloud_denied: Cloud.locked() ? 'الاشتراك منتهٍ' : 'لا صلاحية لرفع الملفات' }[e && e.code] || 'تعذّر الرفع. تحقق من الاتصال.'));
+          }
+          continue;
+        }
         try {
           const type = f.type || (f.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : '');
           const r = await app.assets.upload(f, type ? { type } : undefined);
@@ -272,7 +282,15 @@ CHG.upload = async t => {
   });
 };
 ACT.openFile = async id => {
-  const f = byId('files', id); if (!f || !f.data) return;
+  const f = byId('files', id); if (!f) return;
+  if (f.path) {
+    // the window opens before the await so popup blockers allow it
+    const w = window.open('', '_blank');
+    try { const url = await Cloud.signedUrl(f.path); if (w) w.location.href = url; else location.href = url; }
+    catch (e) { if (w) w.close(); toast('تعذّر فتح الملف. تحقق من الاتصال.'); }
+    return;
+  }
+  if (!f.data) return;
   const url = URL.createObjectURL(await (await fetch(f.data)).blob());
   const w = window.open(url, '_blank');
   if (!w) downloadFile(f.name, await (await fetch(f.data)).blob());
@@ -280,6 +298,7 @@ ACT.openFile = async id => {
 ACT.delFile = id => {
   const f = byId('files', id); if (!f) return;
   confirmBox(`حذف «${esc(f.title || f.name)}» نهائيًا من ملف المريض؟`, async () => {
+    if (f.path && app.mode === 'cloud') { try { await Cloud.delFile(f.path); } catch (e) { toast('تعذّر حذف الملف. تحقق من الاتصال.'); throw e; } }
     if (app.assets && f.assetId) { try { await app.assets.delete(f.assetId); } catch (e) { if (e && e.code === 'not_uploader') { toast('هذا الملف رفعه شخص آخر؛ يحذفه المالك فقط.'); throw e; } } }
     await remove('files', id); toast('حُذف الملف');
   });

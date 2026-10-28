@@ -61,7 +61,7 @@ VIEWS.home = {
 };
 
 function setupCard() {
-  if (!W()) return '';
+  if (!W() || !canSee('settings')) return '';
   const steps = [
     ['بيانات الطبيب والعيادة', !!S.doctorName, 'settings', 'إدخال البيانات'],
     ['أيام وساعات العمل', !!S.hoursSet, 'hours', 'ضبط الدوام'],
