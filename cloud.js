@@ -5,11 +5,12 @@
    كل نسخة مبيعة = عيادة لها حساباتها وبياناتها واشتراكها، تُدار من provider.html.
    ============================================================ */
 const CLOUD = {
-  // نفس مشروع Supabase للمتجر
-  url: 'https://pxxgydllfustqkpkfiqn.supabase.co',
-  key: 'sb_publishable_I2L_KEOwIXjyuCOue4w_3g_MMhYImIU',
+  // مشروع Supabase خاص بالعيادات (منفصل تمامًا عن مشروع المتجر)
+  url: 'https://yukyibwkxwkssirhdhfg.supabase.co',
+  // المفتاح العام (Publishable أو anon) من Project Settings ← API Keys
+  key: 'PASTE_PUBLISHABLE_KEY',
   lib: 'vendor/supabase-js-2.45.4.js',
-  // مفتاح جلسة خاص بالعيادة: المتجر والعيادة على نفس الموقع، فلا تتداخل جلستاهما
+  // مفتاح جلسة خاص بالعيادة: المتجر والعيادة على نفس الموقع (github.io)، فلا تتداخل جلستاهما
   storageKey: 'clinic-auth',
   emailDomain: 'users.clinicapp.io',
   bucket: 'clinic-files',
