@@ -486,6 +486,7 @@ body.tv-mode #view{max-width:none;padding:0}
 
 
 .p-info{background:var(--info-soft);color:var(--info-text)}
+#hoursHint.bad{background:var(--danger-soft);color:var(--danger-text)}
 
 /* ===== الصفحة الرئيسية ===== */
 .hero { background: var(--hero-bg); color: var(--hero-text); border-radius: var(--radius); padding: 24px 26px; display: flex; justify-content: space-between; gap: 24px; margin-bottom: 16px; flex-wrap: wrap; box-shadow: var(--shadow-md); position: relative; overflow: hidden }

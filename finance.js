@@ -385,12 +385,12 @@ VIEWS.settings = {
       ${!dis ? '<div class="m-foot"><button class="btn primary" type="submit">حفظ البيانات</button></div>' : ''}</div></form>`);
     if (tab === 'hours') h += card(cur[1], 'منها تُبنى مواعيد الحجز المتاحة.', `<form data-form="settings"><div class="form">
       <div class="full fl">أيام العمل<div class="daypick">${DAYS.map(([n, l]) => `<label><input type="checkbox" name="workDays" value="${n}" ${(S.workDays || []).includes(n) ? 'checked' : ''} ${dis}><span>${l}</span></label>`).join('')}</div></div>
-      <label>بداية الدوام<input id="s_st" name="start" type="time" value="${esc(S.start)}" ${dis}></label>
-      <label>نهاية الدوام<input id="s_en" name="end" type="time" value="${esc(S.end)}" ${dis}></label>
-      <label>بداية الاستراحة (اختياري)<input id="s_bs" name="breakStart" type="time" value="${esc(S.breakStart)}" ${dis}></label>
-      <label>نهاية الاستراحة<input id="s_be" name="breakEnd" type="time" value="${esc(S.breakEnd)}" ${dis}></label>
-      <label>مدة الموعد الواحد<select id="s_sl" name="slot" ${dis}>${opts([[10, '10 دقائق'], [15, '15 دقيقة'], [20, '20 دقيقة'], [30, '30 دقيقة'], [45, '45 دقيقة'], [60, 'ساعة']], S.slot)}</select></label>
-      <div class="hint">بهذه الإعدادات: ${daySlots(nextWorkDay()).filter(s => !s.brk).length} موعدًا في اليوم.</div>
+      <label>بداية الدوام<select id="s_st" name="start" data-change="hoursPreview" ${dis}>${timeOpts(S.start, 0, 1425)}</select></label>
+      <label>نهاية الدوام<select id="s_en" name="end" data-change="hoursPreview" ${dis}>${timeOpts(S.end, 15, 1440)}</select></label>
+      <label>بداية الاستراحة (اختياري)<select id="s_bs" name="breakStart" data-change="hoursPreview" ${dis}>${timeOpts(S.breakStart, 0, 1425, 'بدون استراحة')}</select></label>
+      <label>نهاية الاستراحة<select id="s_be" name="breakEnd" data-change="hoursPreview" ${dis}>${timeOpts(S.breakEnd, 15, 1440, '—')}</select></label>
+      <label>مدة الموعد الواحد<select id="s_sl" name="slot" data-change="hoursPreview" ${dis}>${opts([[10, '10 دقائق'], [15, '15 دقيقة'], [20, '20 دقيقة'], [30, '30 دقيقة'], [45, '45 دقيقة'], [60, 'ساعة']], S.slot)}</select></label>
+      <div class="hint" id="hoursHint">${hoursSummary(S)}</div>
       ${!dis ? '<div class="m-foot"><button class="btn primary" type="submit">حفظ أوقات العمل</button></div>' : ''}</div></form>`);
     if (tab === 'messages') h += card(cur[1], 'نص التذكير بالواتساب وتذييل المستندات.', `<form data-form="settings"><div class="form">
       <label class="full">نص رسالة تذكير الموعد<textarea id="s_rt" name="reminderTpl" rows="3" ${dis}>${esc(S.reminderTpl)}</textarea></label>
@@ -430,11 +430,49 @@ VIEWS.settings = {
 };
 function nextWorkDay() { for (let i = 0; i < 7; i++) { const d = addDays(today(), i); if (isWorkDay(d)) return d; } return today(); }
 ACT.stab = t => { ui.stab = t; buildShell(); };
+// أوقات بخطوة ربع ساعة، بصيغة «4:30 م» بدل منتقي الوقت الإنجليزي في المتصفح
+function timeOpts(sel, from, to, empty) {
+  let h = empty != null ? `<option value="">${esc(empty)}</option>` : '';
+  const vals = [];
+  for (let m = from; m <= to; m += 15) vals.push(mtime(m));
+  // وقت محفوظ سابقًا خارج خطوة ربع الساعة يبقى كما هو
+  if (sel && !vals.includes(sel)) { vals.push(sel); vals.sort(); }
+  for (const v of vals) h += `<option value="${v}" ${v === sel ? 'selected' : ''}>${esc(fmtTime(v))}</option>`;
+  return h;
+}
+function hoursError(h) {
+  if (!(h.workDays || []).length) return 'اختر يوم عمل واحدًا على الأقل.';
+  const st = tmin(h.start), en = tmin(h.end);
+  if (en <= st) return 'نهاية الدوام يجب أن تكون بعد بدايته. للدوام حتى منتصف الليل اختر «12:00 منتصف الليل».';
+  if (!!h.breakStart !== !!h.breakEnd) return 'حدد بداية الاستراحة ونهايتها معًا، أو اترك الاثنين فارغين.';
+  if (h.breakStart) {
+    const bs = tmin(h.breakStart), be = tmin(h.breakEnd);
+    if (be <= bs) return 'نهاية الاستراحة يجب أن تكون بعد بدايتها.';
+    if (bs < st || be > en) return 'الاستراحة يجب أن تكون داخل أوقات الدوام.';
+  }
+  if (en - st < (+h.slot || 15)) return 'مدة الدوام أقصر من مدة الموعد الواحد.';
+  return '';
+}
+function hoursSummary(h) {
+  const err = hoursError(h);
+  if (err) return err;
+  const st = tmin(h.start), en = tmin(h.end), step = +h.slot || 15;
+  let n = 0;
+  for (let m = st; m + step <= en; m += step) if (!(h.breakStart && m >= tmin(h.breakStart) && m < tmin(h.breakEnd))) n++;
+  const days = (h.workDays || []).length;
+  return `بهذه الإعدادات: <b>${n}</b> موعدًا في اليوم، من ${esc(fmtTime(h.start))} إلى ${esc(fmtTime(h.end))}${h.breakStart ? ` (استراحة ${esc(fmtTime(h.breakStart))} – ${esc(fmtTime(h.breakEnd))})` : ''} · ${days} ${days > 2 && days < 11 ? 'أيام' : 'يوم'} في الأسبوع.`;
+}
+const readHours = f => { const fd = new FormData(f); return { workDays: fd.getAll('workDays').map(Number), start: fd.get('start'), end: fd.get('end'), breakStart: fd.get('breakStart'), breakEnd: fd.get('breakEnd'), slot: +fd.get('slot') }; };
+CHG.hoursPreview = t => { const f = t.closest('form'), h = readHours(f), el = $('#hoursHint'); el.innerHTML = hoursSummary(h); el.classList.toggle('bad', !!hoursError(h)); };
+document.addEventListener('change', e => { if (e.target.name === 'workDays' && $('#hoursHint')) CHG.hoursPreview(e.target); });
 PAGEFORMS.settings = async (d, fd, form) => {
   const next = { ...d };
-  if (form.querySelector('[name=workDays]')) { next.workDays = fd.getAll('workDays').map(Number); next.hoursSet = true; }
+  if (form.querySelector('[name=workDays]')) {
+    const h = readHours(form), err = hoursError(h);
+    if (err) { toast(err); return false; }
+    Object.assign(next, h, { hoursSet: true });
+  }
   if (next.slot) next.slot = +next.slot;
-  if (next.start && next.end && tmin(next.end) <= tmin(next.start)) { toast('نهاية الدوام يجب أن تكون بعد بدايته.'); return false; }
   await saveSettings(next);
   toast('حُفظت الإعدادات');
   if (ui.stab === 'hours') buildShell();

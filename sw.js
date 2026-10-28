@@ -3,7 +3,7 @@
  * - الملفات: المحفوظة بنفس رقم النسخة (?v=) أولًا.
  * - طلبات Supabase لا تمر من هنا؛ بيانات العيادة يحفظها cloud.js في IndexedDB.
  */
-const CACHE = 'clinic-app-v4';
+const CACHE = 'clinic-app-v5';
 const PAGES = ['index.html', 'app.html', 'expired.html', 'terms.html', 'provider.html'];
 const EXTRA = ['manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png', 'vendor/supabase-js-2.45.4.js'];
 
