@@ -35,7 +35,13 @@
     let r;
     try {
       r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token, apikey: CLOUD.key }, body: JSON.stringify({ action, ...body }) });
-    } catch (e) { throw new Error('تعذّر الاتصال بالخادم. تأكد أن الدالة clinic-admin منشورة.'); }
+    } catch (e) {
+      // المتصفح لا يكشف سبب الفشل؛ نفرّق بين انقطاع الإنترنت ودالة غير منشورة أو متعطلة
+      const online = await fetch(CLOUD.url + '/auth/v1/health', { headers: { apikey: CLOUD.key } }).then(() => true, () => false);
+      throw new Error(online
+        ? 'الخادم يعمل لكن الدالة clinic-admin لم تردّ: إما غير منشورة بهذا الاسم بالضبط، أو تتعطل عند التشغيل (افتح Edge Functions ← clinic-admin ← Logs).'
+        : 'لا يوجد اتصال بالخادم. تحقق من الإنترنت.');
+    }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { const e = new Error(j.error || 'خطأ ' + r.status); e.status = r.status; throw e; }
     return j;
