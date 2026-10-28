@@ -249,10 +249,15 @@ function apptForm(a, pre = {}) {
 function slotPicker(date, exceptId, cur) {
   if (!isWorkDay(date)) return `<div class="hint" style="margin:0">${esc(fmtWeekday(date))} ليس من أيام العمل في الإعدادات. يمكنك الحجز رغم ذلك.</div>`;
   const taken = new Set(D.appointments.filter(x => x.date === date && x.id !== exceptId && OPEN_STATUSES.concat('done').includes(x.status)).map(x => x.time));
-  const nm = nowMin();
-  const sl = daySlots(date).filter(s => !s.brk && !taken.has(s.time) && (date !== today() || tmin(s.time) > nm - 5));
-  if (!sl.length) return `<div class="hint" style="margin:0">لا فترات فارغة في هذا اليوم.</div>`;
-  return `<div class="fl">الفترات المتاحة (${sl.length})</div><div class="slots" style="margin-top:4px">${sl.slice(0, 24).map(s => `<button type="button" class="slot" data-act="pickSlot" data-id="${s.time}" ${s.time === cur ? 'style="background:var(--accent);color:var(--accent-ink)"' : ''}>${esc(fmtTime(s.time))}</button>`).join('')}</div>`;
+  const nm = nowMin(), isToday = date === today(), isPast = date < today();
+  const free = daySlots(date).filter(s => !s.brk && !taken.has(s.time));
+  // الأوقات التي مضت تبقى قابلة للاختيار (لتسجيل مريض جاء مبكرًا)، لكن بلون باهت وبعد القادمة
+  const gone = s => isPast || (isToday && tmin(s.time) <= nm - 5);
+  const next = free.filter(s => !gone(s)), past = free.filter(gone);
+  if (!free.length) return `<div class="hint" style="margin:0">لا فترات فارغة في هذا اليوم. اكتب الوقت يدويًا للحجز رغم ذلك.</div>`;
+  const btn = s => `<button type="button" class="slot ${gone(s) ? 'gone' : ''}" data-act="pickSlot" data-id="${s.time}" ${s.time === cur ? 'style="background:var(--accent);color:var(--accent-ink)"' : ''}>${esc(fmtTime(s.time))}</button>`;
+  return (next.length ? `<div class="fl">الفترات المتاحة (${next.length})</div><div class="slots" style="margin-top:4px">${next.map(btn).join('')}</div>` : '')
+    + (past.length ? `<div class="fl" style="margin-top:${next.length ? 10 : 0}px">${isPast ? 'فترات فارغة في هذا اليوم (مضى)' : 'أوقات مضت اليوم'} (${past.length})</div><div class="slots" style="margin-top:4px">${past.map(btn).join('')}</div>` : '');
 }
 CHG.apDate = t => { $('#apSlots').innerHTML = slotPicker(t.value, null, $('#a_time').value); };
 CHG.apPat = t => { const ty = $('#a_type'); if (ty && t.value) ty.value = visitsOf(t.value).length ? 'followup' : 'new'; };
@@ -315,7 +320,7 @@ function calDay(iso) {
     const open = list.filter(a => OPEN_STATUSES.concat('done').includes(a.status));
     const gone = past || (iso === today() && tmin(t) + (+S.slot || 20) <= nowMin());
     return `<div class="cal-row ${brk.has(t) ? 'brk' : ''} ${gone ? 'past' : ''}"><div class="tm num">${esc(fmtTime(t))}</div><div class="cell">${list.map(apptCard).join('')}
-      ${!open.length && !brk.has(t) && !gone && W() ?`<button class="free" data-act="bookSlot" data-id="${iso}|${t}">متاح — احجز هذا الوقت</button>` : ''}${brk.has(t) && !list.length ? '<span class="muted" style="font-size:.82rem">استراحة</span>' : ''}</div></div>`;
+      ${!open.length && !brk.has(t) && W() ? `<button class="free" data-act="bookSlot" data-id="${iso}|${t}">${gone ? 'مضى — سجّل موعدًا بهذا الوقت' : 'متاح — احجز هذا الوقت'}</button>` : ''}${brk.has(t) && !list.length ? '<span class="muted" style="font-size:.82rem">استراحة</span>' : ''}</div></div>`;
   }).join('')}</section>${remindersPanel(iso)}</div>`;
   return h;
 }

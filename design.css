@@ -261,6 +261,7 @@ tfoot td{font-weight:700;background:var(--surface-2)}
 
 .slots{display:flex;flex-wrap:wrap;gap:6px}
 .slot{border:1px dashed var(--accent);color:var(--accent);background:var(--accent-soft);border-radius:8px;padding:3px 10px;font-weight:600;cursor:pointer;font-size:.86rem}
+.slot.gone{border-color:var(--border-strong);color:var(--muted);background:transparent}
 .slot:hover{background:var(--accent);color:var(--accent-ink);border-style:solid}
 
 .setup{background:linear-gradient(135deg,var(--accent-soft),var(--surface));border:1px solid var(--accent);border-radius:14px;padding:18px 20px;margin-bottom:18px}
