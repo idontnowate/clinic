@@ -18,7 +18,7 @@
   }
 
   // ===== التحديثات: يُرفع BUILD مع version.json في كل تحديث =====
-  const BUILD = 202610300;
+  const BUILD = 202610310;
   let bar = null;
   async function checkVersion() {
     if (navigator.onLine === false || location.protocol === 'file:') return null;

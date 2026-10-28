@@ -30,20 +30,21 @@
 
 ## التشغيل (مرة واحدة)
 
-يعمل على نفس مشروع Supabase الخاص بالمتجر، وكل جداوله تبدأ بـ `clinic` فلا تختلط بجداول المتجر.
+للعيادات مشروع Supabase خاص بها (`yukyibwkxwkssirhdhfg`)، منفصل تمامًا عن مشروع المتجر: حسابات وبيانات وحساب مزود مستقلة.
 
 1. **قاعدة البيانات:** Supabase ← SQL Editor ← الصق محتوى `supabase/clinic.sql` كاملًا ← Run.
    (إذا شغّلته سابقًا شغّله مرة ثانية؛ يضيف جداول الأجهزة ولا يمسح شيئًا.)
 2. **الدالتان:** Supabase ← Edge Functions ← دالة باسم `clinic-admin` من `supabase/functions/clinic-admin/index.ts`،
    ودالة باسم `clinic-team` من `supabase/functions/clinic-team/index.ts`. أو من الطرفية:
    ```bash
-   supabase functions deploy clinic-admin --project-ref pxxgydllfustqkpkfiqn
+   supabase functions deploy clinic-admin --project-ref yukyibwkxwkssirhdhfg
    ```
    ```bash
-   supabase functions deploy clinic-team --project-ref pxxgydllfustqkpkfiqn
+   supabase functions deploy clinic-team --project-ref yukyibwkxwkssirhdhfg
    ```
-3. **حساب المزود:** حساب مزود المتجر يعمل هنا أيضًا. وإلا شغّل السطر الأخير في `clinic.sql` ببريدك.
-4. **رقمك:** `support` في أعلى `cloud.js` (يظهر في صفحة الدخول وعند انتهاء الاشتراك وفي زر الواتساب بالتجربة).
+3. **حساب المزود:** Authentication ← Users ← Add user (بريدك وكلمة مرور)، ثم شغّل السطر الأخير في `clinic.sql` ببريدك.
+4. **المفتاح العام:** `key` في أعلى `cloud.js` = Publishable key من Project Settings ← API Keys.
+5. **رقمك:** `support` في أعلى `cloud.js` (يظهر في صفحة الدخول وعند انتهاء الاشتراك وفي زر الواتساب بالتجربة).
 
 ## بيع نسخة جديدة
 

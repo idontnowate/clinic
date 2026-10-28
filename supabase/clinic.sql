@@ -1,12 +1,11 @@
 -- clinic.sql — قاعدة بيانات نسخ العيادة: العيادات، حسابات الدخول، الاشتراكات، السجلات، والمرفقات
 --
 -- شغّله مرة واحدة من Supabase ← SQL Editor ← الصق الملف ← Run. يمكن إعادة تشغيله دون ضرر.
--- يعمل على نفس مشروع المتجر (يستخدم جدول providers نفسه، فحساب المزود واحد للبرنامجين)
--- أو على مشروع جديد مستقل. كل الجداول تبدأ بـ clinic حتى لا تختلط بجداول المتجر.
+-- يُشغَّل على مشروع Supabase الخاص بالعيادات (yukyibwkxwkssirhdhfg)، وهو منفصل تمامًا عن مشروع المتجر.
 -- بعد تشغيله: انشر الدالة clinic-admin (راجع README.md).
 
 -- ===== المزودون: من يستطيع فتح لوحة المزود =====
--- موجود مسبقًا إذا شغّلت provider.sql للمتجر. لا قواعد قراءة: لا يصل إليه إلا مفتاح الخدمة
+-- لا قواعد قراءة: لا يصل إليه إلا مفتاح الخدمة
 create table if not exists public.providers (
     user_id uuid primary key references auth.users (id) on delete cascade,
     created_at timestamptz not null default now()
@@ -231,7 +230,6 @@ $$;
 revoke all on function public.clinic_provider_stats() from public, anon, authenticated;
 
 -- ===== اجعل حسابك مزودًا =====
--- (تخطَّ هذه الخطوة إذا كان حسابك مزودًا في المتجر على نفس المشروع)
 -- 1) أنشئ حسابك من Authentication ← Users ← Add user (بريدك الحقيقي وكلمة مرور قوية)
 -- 2) غيّر البريد في السطر التالي ثم شغّله:
 -- insert into public.providers (user_id) select id from auth.users where email = 'you@example.com' on conflict do nothing;
