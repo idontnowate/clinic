@@ -364,11 +364,14 @@ function monthsChart(endK) {
 /* ================= SETTINGS ================= */
 VIEWS.settings = {
   shell() {
-    const tab = ui.stab = ui.stab || 'clinic';
-    const dis = W() ? '' : 'disabled';
-    const tabs = [['clinic', 'الطبيب والعيادة'], ['hours', 'أوقات العمل'], ['services', 'الخدمات والأسعار'], ['meds', 'قائمة الأدوية'], ['messages', 'الرسائل والمستندات'], ['data', 'النسخ الاحتياطي']];
-    let h = `<div class="head"><div class="grow"><h1>الإعدادات</h1></div></div><div class="tabs" role="tablist">${tabs.map(([k, t]) => `<button role="tab" data-act="stab" data-id="${k}" aria-selected="${tab === k}">${t}</button>`).join('')}</div>`;
-    if (tab === 'clinic') h += `<form class="fs" data-form="settings" style="max-width:820px"><div class="form">
+    const groups = settingsGroups(), all = groups.flatMap(g => g[1]);
+    if (!all.some(t => t[0] === ui.stab)) ui.stab = all[0][0];
+    const tab = ui.stab, cur = all.find(t => t[0] === tab);
+    const dis = W() && app.role === 'admin' ? '' : 'disabled';
+    let h = `<div class="head"><div class="grow"><h1>الإعدادات</h1></div></div><div class="set-layout"><nav class="set-nav" aria-label="أقسام الإعدادات">${groups.map(([g, items]) => `<div class="grp">${g}</div>${items.map(([k, t]) => `<button type="button" data-act="stab" data-id="${k}" aria-current="${tab === k}">${t}</button>`).join('')}`).join('')}</nav><div class="set-body">`;
+    const card = (title, sub, inner) => `<section class="set-card"><header class="set-head"><h2>${title}</h2>${sub ? `<p>${sub}</p>` : ''}</header>${inner}</section>`;
+    if (SETTINGS_PANES[tab]) h += SETTINGS_PANES[tab]();
+    if (tab === 'clinic') h += card(cur[1], 'تظهر في أعلى القائمة وفي الوصفات والتقارير المطبوعة.', `<form data-form="settings"><div class="form">
       <label>اسم الطبيب *<input id="s_dn" name="doctorName" value="${esc(S.doctorName)}" placeholder="بدون «د.»" ${dis} required></label>
       <label>التخصص<input id="s_sp" name="specialty" value="${esc(S.specialty)}" placeholder="مثل: أخصائي الباطنة" ${dis}></label>
       <label>المؤهل / الدرجة العلمية<input id="s_dg" name="degree" value="${esc(S.degree)}" placeholder="مثل: ماجستير الأمراض الباطنة" ${dis}></label>
@@ -379,8 +382,8 @@ VIEWS.settings = {
       <label>المحافظة<select id="s_prov" name="province" ${dis}>${opts(PROVINCES, S.province)}</select></label>
       <label>العنوان<input id="s_ad" name="address" value="${esc(S.address)}" placeholder="مثل: شارع الأطباء، قرب صيدلية…" ${dis}></label>
       <label>العملة<input id="s_cur" name="currency" value="${esc(S.currency)}" list="curList" ${dis}><datalist id="curList">${['د.ع', '$'].map(c => `<option value="${c}">`).join('')}</datalist></label>
-      ${W() ? '<div class="m-foot"><button class="btn primary" type="submit">حفظ البيانات</button></div>' : ''}</div></form>`;
-    if (tab === 'hours') h += `<form class="fs" data-form="settings" style="max-width:820px"><div class="form">
+      ${!dis ? '<div class="m-foot"><button class="btn primary" type="submit">حفظ البيانات</button></div>' : ''}</div></form>`);
+    if (tab === 'hours') h += card(cur[1], 'منها تُبنى مواعيد الحجز المتاحة.', `<form data-form="settings"><div class="form">
       <div class="full fl">أيام العمل<div class="daypick">${DAYS.map(([n, l]) => `<label><input type="checkbox" name="workDays" value="${n}" ${(S.workDays || []).includes(n) ? 'checked' : ''} ${dis}><span>${l}</span></label>`).join('')}</div></div>
       <label>بداية الدوام<input id="s_st" name="start" type="time" value="${esc(S.start)}" ${dis}></label>
       <label>نهاية الدوام<input id="s_en" name="end" type="time" value="${esc(S.end)}" ${dis}></label>
@@ -388,34 +391,34 @@ VIEWS.settings = {
       <label>نهاية الاستراحة<input id="s_be" name="breakEnd" type="time" value="${esc(S.breakEnd)}" ${dis}></label>
       <label>مدة الموعد الواحد<select id="s_sl" name="slot" ${dis}>${opts([[10, '10 دقائق'], [15, '15 دقيقة'], [20, '20 دقيقة'], [30, '30 دقيقة'], [45, '45 دقيقة'], [60, 'ساعة']], S.slot)}</select></label>
       <div class="hint">بهذه الإعدادات: ${daySlots(nextWorkDay()).filter(s => !s.brk).length} موعدًا في اليوم.</div>
-      ${W() ? '<div class="m-foot"><button class="btn primary" type="submit">حفظ أوقات العمل</button></div>' : ''}</div></form>`;
-    if (tab === 'messages') h += `<form class="fs" data-form="settings" style="max-width:820px"><div class="form">
+      ${!dis ? '<div class="m-foot"><button class="btn primary" type="submit">حفظ أوقات العمل</button></div>' : ''}</div></form>`);
+    if (tab === 'messages') h += card(cur[1], 'نص التذكير بالواتساب وتذييل المستندات.', `<form data-form="settings"><div class="form">
       <label class="full">نص رسالة تذكير الموعد<textarea id="s_rt" name="reminderTpl" rows="3" ${dis}>${esc(S.reminderTpl)}</textarea></label>
       <div class="hint">المتغيرات المتاحة: {الاسم} {العيادة} {الطبيب} {اليوم} {الوقت} {الهاتف}</div>
       <label class="full">تذييل الوصفات والتقارير المطبوعة<input id="s_df" name="docFooter" value="${esc(S.docFooter)}" placeholder="مثل: أوقات العمل من السبت إلى الأربعاء 4–10 مساءً" ${dis}></label>
-      ${W() ? '<div class="m-foot"><button class="btn primary" type="submit">حفظ</button><button class="btn" type="button" data-act="previewRx">معاينة شكل الوصفة</button></div>' : ''}</div></form>`;
-    return h + `<div id="vbody"></div>`;
+      ${!dis ? '<div class="m-foot"><button class="btn primary" type="submit">حفظ</button><button class="btn" type="button" data-act="previewRx">معاينة شكل الوصفة</button></div>' : ''}</div></form>`);
+    return h + `<div id="vbody"></div></div></div>`;
   },
   body() {
     const tab = ui.stab;
     if (tab === 'services') {
       const list = [...D.services].sort((a, b) => (a.order || 0) - (b.order || 0));
       const sugg = ['كشفية', 'مراجعة', 'كشفية مستعجلة', 'سونار', 'تخطيط قلب ECG', 'زرق إبرة', 'تعليق مغذي', 'تضميد جرح', 'قياس سكر', 'تقرير طبي'].filter(n => !list.some(s => s.name === n));
-      return `<div style="max-width:820px"><section class="panel"><div class="ph"><h3>الخدمات وأسعارها</h3>${W() ? '<button class="btn sm primary" data-act="newSvc">+ خدمة</button>' : ''}</div>
+      return `<div><section class="panel"><div class="ph"><h3>الخدمات وأسعارها</h3>${W() ? '<button class="btn sm primary" data-act="newSvc">+ خدمة</button>' : ''}</div>
         ${list.length ? `<ul class="list">${list.map(s => `<li><div class="grow"><div class="t">${esc(s.name)}</div></div><b>${money(s.price)}</b>${W() ? `<button class="btn sm ghost" data-act="editSvc" data-id="${s.id}">تعديل</button><button class="btn sm ghost danger" data-act="delSvc" data-id="${s.id}">حذف</button>` : ''}</li>`).join('')}</ul>` : `<div class="empty"><b>لا خدمات بعد</b>أضف أسعار الكشف والمتابعة لتُحسب الفاتورة تلقائيًا في شاشة الكشف.</div>`}
         ${W() && sugg.length ? `<div class="pb" style="border-top:1px solid var(--line)"><div class="fl" style="margin-bottom:6px">إضافة سريعة</div><div class="chips">${sugg.map(n => `<button class="tog" data-act="newSvc" data-id="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div></div>` : ''}</section></div>`;
     }
     if (tab === 'meds') {
       const q = ui.medQ || '';
       const list = D.meds.filter(m => !q || norm(m.name).includes(norm(q))).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar'));
-      return `<div style="max-width:980px"><div class="head" style="margin-bottom:10px"><div class="grow muted" style="font-size:.9rem">الأدوية التي تصفها كثيرًا مع جرعاتها المعتادة. تُضاف الأدوية الجديدة تلقائيًا عند حفظ أي كشف، وتُملأ جرعتها تلقائيًا عند اختيارها في الوصفة.</div>${W() ? '<button class="btn primary" data-act="newMed">+ دواء</button>' : ''}</div>
+      return `<div><div class="head" style="margin-bottom:10px"><div class="grow muted" style="font-size:.9rem">الأدوية التي تصفها كثيرًا مع جرعاتها المعتادة. تُضاف الأدوية الجديدة تلقائيًا عند حفظ أي كشف، وتُملأ جرعتها تلقائيًا عند اختيارها في الوصفة.</div>${W() ? '<button class="btn primary" data-act="newMed">+ دواء</button>' : ''}</div>
         ${D.meds.length ? `<div class="tbl"><table><thead><tr><th>الدواء</th><th>الشكل</th><th>الجرعة</th><th>التكرار</th><th>المدة</th><th>ملاحظات</th><th class="n">مرات الوصف</th><th></th></tr></thead><tbody>${list.map(m => { const n = D.visits.filter(v => (v.rx || []).some(r => norm(r.drug) === norm(m.name))).length; return `<tr><td><b>${esc(m.name)}</b></td><td>${esc(m.form || '')}</td><td>${esc(m.dose || '')}</td><td>${esc(m.freq || '')}</td><td>${esc(m.duration || '')}</td><td class="muted">${esc(m.notes || '')}</td><td class="n">${n}</td><td><div class="acts">${W() ? `<button class="btn sm ghost" data-act="editMed" data-id="${m.id}">تعديل</button><button class="btn sm ghost danger" data-act="delMed" data-id="${m.id}">حذف</button>` : ''}</div></td></tr>`; }).join('')}</tbody></table></div>` : `<div class="panel"><div class="empty"><b>القائمة فارغة</b>ستمتلئ تلقائيًا مع أول وصفة تكتبها.</div></div>`}</div>`;
     }
     if (tab === 'data') {
       const counts = COLS.map(c => [c, D[c].length]);
       const label = { patients: 'مرضى', appointments: 'مواعيد', visits: 'كشوفات', invoices: 'فواتير', expenses: 'مصروفات', inventory: 'أصناف مخزون', meds: 'أدوية', services: 'خدمات', files: 'مرفقات', reports: 'مستندات' };
       const total = sum(counts, c => c[1]);
-      return `<div style="max-width:820px" class="stack"><section class="panel"><div class="ph"><h3>محتوى قاعدة البيانات</h3><span class="muted">${total} سجل${app.mode === 'live' ? ' من أصل 25,000 متاح' : ''}</span></div><div class="pb"><div class="chips">${counts.map(([c, n]) => `<span class="chip" style="padding:2px 12px">${label[c]}: <b>${n}</b></span>`).join('')}</div></div></section>
+      return `<div class="stack"><section class="panel"><div class="ph"><h3>محتوى البيانات</h3><span class="muted">${total} سجل</span></div><div class="pb"><div class="chips">${counts.map(([c, n]) => `<span class="chip" style="padding:2px 12px">${label[c]}: <b>${n}</b></span>`).join('')}</div></div></section>
         <section class="panel"><div class="ph"><h3>النسخ الاحتياطي</h3></div><div class="pb" style="display:flex;flex-direction:column;gap:10px">
           <div>نزّل نسخة كاملة من بيانات العيادة (بدون الملفات المرفقة) واحفظها على جهازك أسبوعيًا.</div>
           <div class="m-foot" style="padding:0"><button class="btn primary" data-act="backup">تنزيل نسخة احتياطية (JSON)</button><button class="btn" data-act="exportPatients">تصدير المرضى (CSV)</button><button class="btn" data-act="exportVisits">تصدير الكشوفات (CSV)</button></div>

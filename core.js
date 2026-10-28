@@ -105,7 +105,7 @@ const COLS = ['patients', 'appointments', 'visits', 'invoices', 'expenses', 'inv
 const D = Object.fromEntries(COLS.map(c => [c, []]));
 const IDX = Object.fromEntries(COLS.map(c => [c, new Map()]));
 let S = { ...DEFAULT_SETTINGS };
-const app = { mode: 'loading', canWrite: true, db: null, assets: null, downloads: null, loaded: new Set(), settingsLoaded: false };
+const app = { mode: 'loading', canWrite: true, role: null, member: null, settingsLoaded: false };
 const ui = { route: 'home', param: null };
 const VIEWS = {};      // route -> {shell(param), body(param), after?(param), title}
 const ACT = {};        // data-act handlers
@@ -118,7 +118,7 @@ const byId = (col, id) => IDX[col].get(id);
 const pat = id => byId('patients', id);
 const pName = id => pat(id)?.name || 'مريض محذوف';
 const fileNo = p => '#' + String(p?.fileNo || 0).padStart(4, '0');
-const isReady = () => app.mode === 'local' || app.mode === 'device' || app.mode === 'cloud' || (app.mode === 'live' && app.loaded.size >= COLS.length);
+const isReady = () => app.mode === 'cloud' || app.mode === 'demo';
 const W = () => app.canWrite;
 const docName = () => S.doctorName ? 'د. ' + S.doctorName : 'الطبيب';
 const clinicName = () => S.clinicName || (S.doctorName ? 'عيادة د. ' + S.doctorName : 'العيادة');
@@ -167,11 +167,9 @@ function nextFreeSlot(fromIso = today()) {
 }
 
 /* ---------- storage ---------- */
+// cloud: حساب العيادة في Supabase (cloud.js). demo: بيانات وهمية في الذاكرة فقط، لا يُحفظ شيء
 function writeErr(e) {
-  const c = e && e.code;
-  if (c === 'quota_exceeded') return 'امتلأت مساحة قاعدة البيانات. احذف سجلات قديمة غير لازمة ثم أعد المحاولة.';
-  if (c === 'invalid_argument') return 'تعذّر الحفظ: ليست لديك صلاحية تعديل بيانات العيادة، أو أن السجل كبير جدًا.';
-  if (c === 'resource_exhausted') return 'عمليات كثيرة في وقت قصير. انتظر لحظات ثم أعد المحاولة.';
+  if (e && String(e.code || '').startsWith('cloud_')) return Cloud.writeMsg(e);
   return 'تعذّر الحفظ. تحقق من الاتصال ثم أعد المحاولة.';
 }
 function applyLocal(col, obj, del) {
@@ -180,8 +178,7 @@ function applyLocal(col, obj, del) {
   else if (i >= 0) a[i] = obj; else a.push(obj);
   reindex(col);
 }
-/* Device storage: used only when the page runs outside claude.ai (e.g. GitHub Pages),
-   where there is no shared database — records then live in this browser's IndexedDB. */
+/* بيانات النسخة القديمة (كانت تُحفظ في متصفح الجهاز فقط) — تُقرأ مرة واحدة لنقلها إلى حساب العيادة */
 const IDB = {
   db: null,
   open() {
@@ -192,31 +189,22 @@ const IDB = {
       r.onerror = () => rej(r.error);
     });
   },
-  store(mode) { return this.db.transaction('docs', mode).objectStore('docs'); },
   all() {
     return new Promise((res, rej) => {
-      const out = [], c = this.store('readonly').openCursor();
+      const out = [], c = this.db.transaction('docs', 'readonly').objectStore('docs').openCursor();
       c.onsuccess = () => { const cur = c.result; if (cur) { out.push([cur.key, cur.value]); cur.continue(); } else res(out); };
       c.onerror = () => rej(c.error);
     });
-  },
-  put(k, v) { return new Promise((res, rej) => { const r = this.store('readwrite').put(v, k); r.onsuccess = () => res(); r.onerror = () => rej(r.error); }); },
-  del(k) { return new Promise((res, rej) => { const r = this.store('readwrite').delete(k); r.onsuccess = () => res(); r.onerror = () => rej(r.error); }); }
+  }
 };
 async function save(col, obj) {
   const now = Date.now();
   obj = { ...obj, updatedAt: now };
   if (!obj.createdAt) obj.createdAt = now;
   const body = JSON.parse(JSON.stringify(obj));
-  if (app.mode === 'live') {
-    try { await app.db.collection(col).doc(obj.id).set(body); }
-    catch (e) { toast(writeErr(e)); throw e; }
-  } else if (app.mode === 'cloud') {
+  if (app.mode === 'cloud') {
     try { await Cloud.put(col, obj.id, body); }
     catch (e) { toast(Cloud.writeMsg(e)); throw e; }
-  } else if (app.mode === 'device') {
-    try { await IDB.put(col + '/' + obj.id, body); }
-    catch (e) { toast('تعذّر الحفظ في ذاكرة الجهاز. قد تكون المساحة ممتلئة.'); throw e; }
   }
   applyLocal(col, obj);
   scheduleRender();
@@ -228,25 +216,19 @@ async function patch(col, id, fields) {
   return save(col, { ...cur, ...fields });
 }
 async function remove(col, id) {
-  if (app.mode === 'live') {
-    try { await app.db.collection(col).doc(id).delete(); }
-    catch (e) { toast(writeErr(e)); throw e; }
-  } else if (app.mode === 'cloud') {
+  if (app.mode === 'cloud') {
     try { await Cloud.put(col, id, {}, true); }
     catch (e) { toast(Cloud.writeMsg(e)); throw e; }
-  } else if (app.mode === 'device') await IDB.del(col + '/' + id);
+  }
   applyLocal(col, { id }, true);
   scheduleRender();
 }
 async function saveSettings(next) {
   const s = { ...S, ...next };
-  if (app.mode === 'live') {
-    try { await app.db.doc('settings/clinic').set(JSON.parse(JSON.stringify(s))); }
-    catch (e) { toast(writeErr(e)); throw e; }
-  } else if (app.mode === 'cloud') {
+  if (app.mode === 'cloud') {
     try { await Cloud.put('settings', 'clinic', JSON.parse(JSON.stringify(s))); }
     catch (e) { toast(Cloud.writeMsg(e)); throw e; }
-  } else if (app.mode === 'device') await IDB.put('settings/clinic', JSON.parse(JSON.stringify(s)));
+  }
   S = s; applySettings(); scheduleRender();
 }
 
@@ -255,47 +237,99 @@ const lsGet = k => { try { const v = localStorage.getItem('clinic:' + k); return
 const lsSet = (k, v) => { try { v == null ? localStorage.removeItem('clinic:' + k) : localStorage.setItem('clinic:' + k, JSON.stringify(v)); } catch (e) { } };
 
 /* ---------- routing & rendering ---------- */
+// أيقونات خطية بنفس سماكة أيقونات المتجر
+const ICONS = {
+  home: '<path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v11h13V9"/><path d="M10 20v-5.5h4V20"/>',
+  calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  patients: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.6A6.5 6.5 0 0 1 21.5 20"/>',
+  finance: '<path d="M19 7V5.5A1.5 1.5 0 0 0 17.5 4h-12A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20h14a1.5 1.5 0 0 0 1.5-1.5v-10A1.5 1.5 0 0 0 19.5 7H5.5"/><circle cx="16.5" cy="13.5" r="1.1"/>',
+  inventory: '<path d="M20.5 7.5 12 3 3.5 7.5v9L12 21l8.5-4.5z"/><path d="m3.5 7.5 8.5 4.5 8.5-4.5M12 12v9"/>',
+  reports: '<path d="M3.5 20.5h17"/><path d="M6.5 16.5v-5M11 16.5V6.5M15.5 16.5v-7M20 16.5V4"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.6A6.5 6.5 0 0 1 21.5 20"/>',
+  settings: '<path d="M4 6.5h9M17 6.5h3M4 12h3M11 12h9M4 17.5h11M19 17.5h1"/><circle cx="15" cy="6.5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17.5" r="2"/>',
+  tv: '<rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 16l-4-4 4-4M6 12h10"/>',
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  more: '<circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/>'
+};
 const NAV = [
-  ['home', 'اليوم', '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10"/><path d="M10 20v-5h4v5"/>'],
-  ['calendar', 'المواعيد', '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'],
-  ['patients', 'المرضى', '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.6 3.1-6 6.5-6s6 2.4 6.5 6"/><path d="M16 4.5a3.3 3.3 0 0 1 0 6.6M18 14.3c2 .8 3.3 2.9 3.5 5.7"/>'],
-  ['finance', 'الحسابات', '<rect x="2.5" y="6" width="19" height="13" rx="2"/><path d="M2.5 10h19"/><circle cx="16.5" cy="14.5" r="1.4"/>'],
-  ['inventory', 'المخزون', '<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/>'],
-  ['reports', 'التقارير', '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'],
-  ['settings', 'الإعدادات', '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>']
+  ['home', 'اليوم'], ['calendar', 'المواعيد'], ['patients', 'المرضى'], ['finance', 'الحسابات'],
+  ['inventory', 'المخزون'], ['reports', 'التقارير'], ['users', 'المستخدمون والأجهزة']
 ];
-const TOP_ROUTES = NAV.map(n => n[0]);
-const canSee = route => !(app.role === 'staff' && STAFF_HIDDEN.includes(route));
+const NAV_BOTTOM = [['settings', 'الإعدادات']];
+const TABBAR = [['home', 'اليوم'], ['calendar', 'المواعيد'], ['patients', 'المرضى'], ['finance', 'الحسابات']];
+const TOP_ROUTES = [...NAV, ...NAV_BOTTOM].map(n => n[0]);
+const canSee = route => !(app.role !== 'admin' && STAFF_HIDDEN.includes(route));
 const icon = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const initial = s => esc(String(s || '').replace(/^د\.\s*/, '').trim().charAt(0) || 'ع');
 
 function buildNav() {
   const waiting = D.appointments.filter(a => a.date === today() && a.status === 'waiting').length;
   const top = TOP_ROUTES.includes(ui.route) ? ui.route : (ui.route === 'patient' || ui.route === 'visit' ? 'patients' : 'home');
-  $('#nav').innerHTML = NAV.filter(n => canSee(n[0])).map(([k, t, p]) => `<button data-act="nav" data-id="${k}" ${top === k ? 'aria-current="page"' : ''}>${icon(p)}<span>${t}</span>${k === 'home' && waiting ? `<span class="badge" title="في الانتظار">${waiting}</span>` : ''}</button>`).join('');
-  const acct = app.mode === 'cloud' && Cloud.member ? `<button class="btn ghost" data-act="account" title="حسابي">${icon('<circle cx="12" cy="8" r="4"/><path d="M4 21c.6-4 3.9-6.5 8-6.5s7.4 2.5 8 6.5"/>')}<span class="acct-n">${esc(Cloud.member.display_name || Cloud.member.username)}</span></button>` : '';
-  $('#topActs').innerHTML = acct + (W() ? `<button class="btn" data-act="newAppt">${icon('<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M12 13v5M9.5 15.5h5"/>')}موعد</button><button class="btn primary" data-act="newPatient">${icon('<path d="M12 5v14M5 12h14"/>')}مريض جديد</button>` : '');
-  const modeTxt = app.mode === 'cloud' ? `<span class="dot ${navigator.onLine === false ? 'local' : 'live'}"></span>${navigator.onLine === false ? 'بلا إنترنت — للاطلاع فقط' : 'متصل — البيانات محفوظة في الحساب'}` : app.mode === 'live' ? '<span class="dot live"></span>متصل — البيانات محفوظة' : app.mode === 'device' ? '<span class="dot live"></span>محفوظ على هذا الجهاز' : app.mode === 'local' ? '<span class="dot local"></span>عرض محلي — لا يُحفظ' : '<span class="dot"></span>جارٍ الاتصال…';
-  $('#sideFoot').innerHTML = `<div><b>${esc(fmtDayFull(today()))}</b></div><div>${modeTxt}</div>`;
+  const btn = ([k, t]) => `<button data-act="nav" data-id="${k}" title="${t}" ${top === k ? 'aria-current="page"' : ''}>${icon(ICONS[k])}<span class="lbl">${t}</span>${k === 'home' && waiting ? `<span class="badge" title="في الانتظار">${waiting}</span>` : ''}</button>`;
+  $('#nav').innerHTML = NAV.filter(n => canSee(n[0])).map(btn).join('');
+  $('#navBottom').innerHTML = NAV_BOTTOM.map(btn).join('');
+  const m = app.member;
+  if (m) {
+    $('#userBox').innerHTML = `<button class="who-link" type="button" data-act="goAccount" title="حسابي"><span class="avatar">${initial(m.display_name || m.username)}</span><span class="who"><b>${esc(m.display_name || m.username)}</b><small>${Auth.roleLabel(m.role)}</small></span></button>
+      <button class="icon-btn" type="button" data-act="logout" title="تسجيل الخروج" aria-label="تسجيل الخروج">${icon(ICONS.logout)}</button>`;
+    $('#userBox').hidden = false;
+  }
+  const off = navigator.onLine === false;
+  $('#net').innerHTML = app.mode === 'demo' ? '<span class="dot local"></span><span>نسخة تجريبية — لا يُحفظ شيء</span>'
+    : `<span class="dot ${off ? 'local' : 'live'}"></span><span>${off ? 'بلا إنترنت — للاطلاع فقط' : 'متصل — البيانات محفوظة في الحساب'}</span>`;
+  $('#topActs').innerHTML = (W() ? `<button class="btn" data-act="newAppt">${icon('<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M12 13v5M9.5 15.5h5"/>')}<span class="acct-n">موعد</span></button><button class="btn primary" data-act="newPatient">${icon('<path d="M12 5v14M5 12h14"/>')}مريض جديد</button>` : '')
+    + `<button class="nav-toggle" type="button" data-act="toggleNav" aria-label="فتح أو إغلاق القائمة">${icon(ICONS.menu)}</button>`;
+  $('#tabbar').innerHTML = TABBAR.map(([k, t]) => `<button type="button" data-act="nav" data-id="${k}" ${top === k ? 'aria-current="page"' : ''}>${icon(ICONS[k])}<span>${t}</span></button>`).join('')
+    + `<button type="button" data-act="toggleNav">${icon(ICONS.more)}<span>المزيد</span></button>`;
 }
 function applySettings() {
   $('#bClinic').textContent = clinicName();
-  $('#bDoctor').textContent = S.doctorName ? `${docName()}${S.specialty ? ' — ' + S.specialty : ''}` : 'نظام إدارة العيادة';
+  $('#bDoctor').textContent = S.specialty || (S.doctorName ? docName() : 'نظام إدارة العيادة');
+  $('#bLogo').textContent = initial(S.clinicName || S.doctorName || 'ع');
   try { document.title = clinicName(); } catch (e) { }
 }
 function banner() {
   const b = $('#banner');
-  let h = '';
-  if (app.mode === 'local') h = 'وضع العرض المحلي: قاعدة البيانات غير متاحة في هذا العرض، لذلك تبقى التعديلات حتى إغلاق الصفحة فقط. افتح الرابط من claude.ai لحفظ بيانات العيادة.';
-  else if (app.mode === 'device' && backupDue()) h = `البيانات محفوظة في متصفح هذا الجهاز فقط. ${S.lastBackup ? 'آخر نسخة احتياطية قبل ' + daysBetween(S.lastBackup, today()) + ' يوم' : 'لم تنزّل نسخة احتياطية بعد'}. <button class="btn sm" data-act="backup" style="margin-inline-start:8px">نزّل نسخة الآن</button>`;
-  else if (app.mode === 'cloud') { b.innerHTML = Cloud.bannerHtml(); return; }
-  else if (app.mode === 'live' && !W()) h ='لديك صلاحية الاطلاع فقط. اطلب من الطبيب صلاحية «مساهم» من قائمة المشاركة لإضافة السجلات وتعديلها.';
-  b.innerHTML = h ? `<div class="banner">${h}</div>` : '';
+  if (!b) return;
+  const out = [];
+  if (app.mode === 'demo') out.push(`<div class="banner"><span class="grow"><b>نسخة تجريبية</b> — بيانات وهمية للتجربة، ولا يُحفظ شيء.</span><a class="demo-cta" href="${supportWa('مرحبًا، جربت برنامج إدارة العيادة وأريد نسخة لعيادتي')}" target="_blank" rel="noopener">أريد البرنامج لعيادتي</a><button type="button" class="demo-exit" data-act="logout">خروج من التجربة</button></div>`);
+  if (app.mode === 'cloud') {
+    const st = Auth.cachedSub(), r = st.row, call = `<a href="tel:${esc(CLOUD.support)}" class="ltr">${esc(CLOUD.support)}</a>`;
+    if (st.status === 'grace') {
+      const left = CLOUD.graceDays + st.days;
+      out.push(`<div class="banner bad"><span class="grow">انتهى اشتراك العيادة في ${esc(fmtDate(r.expires_at))}. ${left > 0 ? `سيتوقف البرنامج بعد ${left} يوم` : 'سيتوقف البرنامج غدًا'} ما لم يُجدَّد. للتجديد: ${call}</span></div>`);
+    } else if (st.status === 'expiring' && app.role === 'admin') {
+      out.push(`<div class="banner warn"><span class="grow">${st.days === 0 ? 'ينتهي اشتراك العيادة اليوم' : `ينتهي اشتراك العيادة بعد ${st.days} يوم (${esc(fmtDate(r.expires_at))})`}. للتجديد: ${call}</span></div>`);
+    }
+  }
+  b.innerHTML = out.join('');
 }
-const backupDue = () => D.patients.length > 0 && (!S.lastBackup || daysBetween(S.lastBackup, today()) >= 7);
+/* القائمة: مطوية على الكمبيوتر (تُحفظ)، ودرج منزلق على الهاتف — مثل المتجر */
+const MOBILE = window.matchMedia('(max-width: 760px)');
+function initLayout() {
+  try { if (localStorage.getItem('clinic:nav') === '"collapsed"' && !MOBILE.matches) document.documentElement.classList.add('nav-collapsed'); } catch (e) { }
+  $('#navBackdrop').addEventListener('click', () => document.body.classList.remove('nav-open'));
+  MOBILE.addEventListener('change', () => { document.body.classList.remove('nav-open'); document.documentElement.classList.toggle('nav-collapsed', !MOBILE.matches && lsGet('nav') === 'collapsed'); });
+}
+ACT.toggleNav = () => {
+  if (MOBILE.matches) { document.body.classList.toggle('nav-open'); return; }
+  const c = !document.documentElement.classList.contains('nav-collapsed');
+  document.documentElement.classList.toggle('nav-collapsed', c);
+  lsSet('nav', c ? 'collapsed' : 'open');
+};
+ACT.logout = () => {
+  if (app.mode === 'demo') return Auth.exitDemo();
+  confirmBox('تسجيل الخروج من هذا الجهاز؟ تُمسح نسخة البيانات المحفوظة عليه، وتبقى محفوظة في حساب العيادة.', () => Auth.logout(), 'تسجيل الخروج');
+};
+ACT.goAccount = () => { ui.stab = 'account'; nav('settings'); };
+ACT.skipMigration = () => { lsSet('migrated:' + Cloud.clinicId, true); closeModal(); };
+
 function nav(route, param = null, opts = {}) {
   if (!VIEWS[route] || !canSee(route)) route = 'home';
   if (VIEWS[ui.route]?.leave) VIEWS[ui.route].leave();
   ui.route = route; ui.param = param;
+  if (MOBILE.matches) document.body.classList.remove('nav-open');
   if (TOP_ROUTES.includes(route)) { try { history.replaceState(null, '', '#' + route); } catch (e) { } }
   buildShell();
   if (!opts.keepScroll) window.scrollTo(0, 0);
@@ -382,21 +416,13 @@ async function copyText(txt, okMsg = 'تم النسخ') {
   }
 }
 async function downloadFile(filename, data) {
-  if (app.mode === 'device') {
-    // outside claude.ai the browser can save files directly
+  try {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(data instanceof Blob ? data : new Blob([data], { type: /\.csv$/.test(filename) ? 'text/csv' : /\.json$/.test(filename) ? 'application/json' : 'text/html' }));
     a.download = filename; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     toast('جاهز: ' + filename); return true;
-  }
-  if (!app.downloads) { toast('تنزيل الملفات غير متاح في هذا العرض. افتح الصفحة من claude.ai.'); return false; }
-  try { await app.downloads.save({ filename, data }); toast('جاهز: ' + filename); return true; }
-  catch (e) {
-    if (e && e.code === 'declined') return false;
-    if (e && e.code === 'rate_limited') { toast('هناك طلب تنزيل مفتوح بالفعل. أكمله ثم أعد المحاولة.'); return false; }
-    toast('تعذّر تنزيل الملف.'); return false;
-  }
+  } catch (e) { toast('تعذّر تنزيل الملف.'); return false; }
 }
 const safeName = s => String(s || '').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60) || 'ملف';
 function toCSV(rows) {
@@ -512,53 +538,21 @@ function openPatient(id, tab) { ui.prev = { route: ui.route, param: ui.param }; 
 /* ---------- boot ---------- */
 const App = {
   async start() {
+    setInterval(() => { if (ui.route === 'home' && $('#overlay').hidden) renderBody(); }, 60000);
+    setInterval(() => { if (ui.route === 'tv') renderBody(); }, 20000);
+    initLayout();
+    // يتحقق من الدخول والاشتراك؛ يحوّل لصفحة الدخول أو انتهاء الاشتراك عند الحاجة
+    const m = await Auth.guard();
+    if (!m) return;
+    app.member = m; app.role = m.role;
+    if (Auth.isDemo()) { app.mode = 'demo'; Demo.seed(); }
+    else { await Cloud.start(m); app.mode = 'cloud'; }
+    app.settingsLoaded = true;
     applySettings();
     const h = (location.hash || '').slice(1);
     nav(TOP_ROUTES.includes(h) ? h : 'home');
-    setInterval(() => { if (ui.route === 'home' && $('#overlay').hidden) renderBody(); }, 60000);
-    setInterval(() => { if (ui.route === 'tv') renderBody(); }, 20000);
-    const c = window.claude;
-    if ((!c || typeof c.use !== 'function') && Cloud.enabled) {
-      // standalone with accounts: login, then the clinic's data from Supabase
-      await Cloud.boot(); return;
-    }
-    if (!c || typeof c.use !== 'function') {
-      // standalone (GitHub Pages or a local file): keep records in this browser
-      try {
-        await IDB.open();
-        for (const [k, v] of await IDB.all()) {
-          const i = k.indexOf('/'), col = k.slice(0, i);
-          if (k === 'settings/clinic') S = { ...DEFAULT_SETTINGS, ...v };
-          else if (D[col]) D[col].push({ ...v, id: k.slice(i + 1) });
-        }
-        COLS.forEach(reindex);
-        app.mode = 'device'; app.settingsLoaded = true;
-        try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) { }
-      } catch (e) { app.mode = 'local'; }
-      applySettings(); buildShell(); return;
-    }
-    let db = null;
-    try { db = await c.use('db'); } catch (e) { db = null; }
-    if (!db) { app.mode = 'local'; buildShell(); return; }
-    app.db = db; app.mode = 'live';
-    const wasReady = new Set();
-    COLS.forEach(col => db.collection(col).onSnapshot(snap => {
-      D[col] = snap.docs.map(x => ({ ...x.data(), id: x.id }));
-      reindex(col); app.loaded.add(col);
-      if (app.loaded.size === COLS.length && !wasReady.has('all')) { wasReady.add('all'); buildShell(); }
-      else scheduleRender();
-    }, err => {
-      app.loaded.add(col);
-      if (err && err.code === 'revoked') { app.mode = 'local'; buildShell(); }
-      else toast('تعذّر تحميل جزء من البيانات. أعد تحميل الصفحة.');
-    }));
-    db.doc('settings/clinic').onSnapshot(s => {
-      if (s.exists) S = { ...DEFAULT_SETTINGS, ...s.data() };
-      app.settingsLoaded = true; applySettings();
-      if (ui.route === 'settings' && !document.activeElement?.closest('#view form')) buildShell(); else scheduleRender();
-    }, () => { });
-    c.use('user').then(u => u ? u.can('data.write') : null).then(v => { if (v === false) { app.canWrite = false; buildShell(); } }).catch(() => { });
-    c.use('downloads').then(x => { app.downloads = x; }).catch(() => { });
-    c.use('assets').then(x => { app.assets = x; if (ui.route === 'patient') scheduleRender(); }).catch(() => { });
+    document.documentElement.style.visibility = '';
+    if (app.mode === 'cloud') Cloud.afterShown();
+    window.addEventListener('memberchange', () => { app.member = Auth.member; app.role = Auth.member.role; buildShell(); });
   }
 };

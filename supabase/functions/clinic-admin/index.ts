@@ -165,19 +165,21 @@ async function ensureAnotherAdmin(admin, clinicId: string, userId: string) {
 const actions = {
     // كل العيادات مع اشتراكاتها وحساباتها وآخر نشاط
     async overview(admin) {
-        const [clinics, members, subs, stats, users] = await Promise.all([
+        const [clinics, members, subs, stats, users, plans, devices] = await Promise.all([
             admin.from("clinics").select("id, name, created_at"),
             admin.from("clinic_members").select("clinic_id, user_id, role, display_name, username"),
             admin.from("clinic_subscriptions").select("*"),
             admin.rpc("clinic_provider_stats"),
             listAllUsers(admin),
+            admin.from("clinic_device_plans").select("clinic_id, device_limit"),
+            admin.from("clinic_devices").select("clinic_id, revoked, last_seen"),
         ]);
         for (const r of [clinics, members, subs, stats]) if (r.error) throw r.error;
 
         const userById = new Map(users.map(u => [u.id, u]));
         const map = new Map();
         const clinic = (id: string) => {
-            if (!map.has(id)) map.set(id, { clinic_id: id, name: "", created_at: null, members: [], subscription: null, last_activity: null, rows_count: 0, patients: 0 });
+            if (!map.has(id)) map.set(id, { clinic_id: id, name: "", created_at: null, members: [], subscription: null, last_activity: null, rows_count: 0, patients: 0, device_limit: 0, devices_active: 0 });
             return map.get(id);
         };
         clinics.data.forEach(c => { const x = clinic(c.id); x.name = c.name; x.created_at = c.created_at; });
@@ -187,6 +189,12 @@ const actions = {
             x.last_activity = s.last_activity;
             x.rows_count = s.rows_count;
             x.patients = s.patients;
+        });
+        // جداول الأجهزة اختيارية: إن لم تُنشأ بعد تبقى القيم صفرًا
+        (plans.data ?? []).forEach(p => { clinic(p.clinic_id).device_limit = p.device_limit; });
+        const month = Date.now() - 30 * 86400000;
+        (devices.data ?? []).forEach(d => {
+            if (!d.revoked && Date.parse(d.last_seen) > month) clinic(d.clinic_id).devices_active++;
         });
         members.data.forEach(m => {
             const u = userById.get(m.user_id);
@@ -306,6 +314,27 @@ const actions = {
         });
         if (error) throw error;
         return { ok: true, expires_at: expiresAt };
+    },
+
+    // أجهزة عيادة واحدة (لنافذة العيادة في اللوحة)
+    async devices(admin, b) {
+        const clinicId = str(b.clinicId);
+        if (!clinicId) throw new UserError("العيادة غير محددة");
+        const { data, error } = await admin.from("clinic_devices")
+            .select("id, display_name, username, label, platform, browser, model, installed, first_seen, last_seen, revoked")
+            .eq("clinic_id", clinicId).order("last_seen", { ascending: false });
+        if (error) throw new UserError("جدول الأجهزة غير موجود. شغّل clinic.sql كاملًا", 500);
+        return { devices: data };
+    },
+
+    async set_device_limit(admin, b) {
+        const clinicId = str(b.clinicId);
+        const limit = Math.floor(Number(b.limit));
+        if (!clinicId) throw new UserError("العيادة غير محددة");
+        if (!(limit >= 0 && limit <= 1000)) throw new UserError("الحد من 0 إلى 1000 (0 = بلا حد)");
+        const { error } = await admin.from("clinic_device_plans").upsert({ clinic_id: clinicId, device_limit: limit, updated_at: new Date().toISOString() });
+        if (error) throw new UserError("تعذر حفظ حد الأجهزة: " + error.message, 500);
+        return { ok: true };
     },
 
     async add_member(admin, b) {

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>العيادة</title>
+<script>
+(function () {
+  // لون الخلفية قبل تحميل التنسيق، حتى لا تومض الصفحة بالأبيض
+  try {
+    var k = /provider\.html$/i.test(location.pathname) ? 'clinicProviderPrefs' : 'clinicPrefs';
+    var p = JSON.parse(localStorage.getItem(k) || '{}'), t = p.theme || 'dark';
+    document.documentElement.style.background = t === 'glass' ? '#161618' : t === 'light' ? '#f6f6f7' : '#0b0c0e';
+    document.documentElement.style.colorScheme = t === 'light' ? 'light' : 'dark';
+  } catch (e) { }
+})();
+</script>
+<link rel="preconnect" href="https://pxxgydllfustqkpkfiqn.supabase.co">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="design.css?v=202610290">
+<link rel="stylesheet" href="glass.css?v=202610290">
+<script src="theme.js?v=202610290"></script>
+<script src="pwa.js?v=202610290"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side" aria-label="القائمة">
+    <div class="side-brand">
+      <span class="logo" id="bLogo" aria-hidden="true">ع</span>
+      <span class="name"><b id="bClinic">العيادة</b><small id="bDoctor">نظام إدارة العيادة</small></span>
+    </div>
+    <nav id="nav" aria-label="الأقسام"></nav>
+    <nav class="bottom" id="navBottom" aria-label="الإعدادات"></nav>
+    <div class="user-box" id="userBox" hidden></div>
+    <div class="net" id="net"></div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" id="gq" placeholder="ابحث عن مريض بالاسم أو الهاتف أو رقم الملف" autocomplete="off" aria-label="بحث عن مريض">
+        <div class="gres" id="gres" hidden></div>
+      </div>
+      <div class="top-acts" id="topActs"></div>
+    </header>
+    <div id="banner"></div>
+    <main id="view"><div class="loading">جارٍ فتح العيادة…</div></main>
+  </div>
+</div>
+<div class="nav-backdrop" id="navBackdrop"></div>
+<nav class="glass-tabbar" id="tabbar" aria-label="التبويبات"></nav>
+<div class="overlay" id="overlay" hidden>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <div class="sheet-h"><h3 id="mTitle"></h3><button class="x" data-act="closeModal" aria-label="إغلاق">×</button></div>
+    <div class="sheet-b" id="mBody"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="tip" id="tip" hidden></div>
+<script src="core.js?v=202610290"></script>
+<script src="views.js?v=202610290"></script>
+<script src="patient.js?v=202610290"></script>
+<script src="finance.js?v=202610290"></script>
+<script src="extras.js?v=202610290"></script>
+<script src="admin.js?v=202610290"></script>
+<script src="cloud.js?v=202610290"></script>
+<script src="demo.js?v=202610290"></script>
+<script>App.start();</script>
+</body>
+</html>

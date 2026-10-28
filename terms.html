@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<title>شروط الاستخدام — العيادة</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>
+(function () {
+  // لون الخلفية قبل تحميل التنسيق، حتى لا تومض الصفحة بالأبيض
+  try {
+    var k = /provider\.html$/i.test(location.pathname) ? 'clinicProviderPrefs' : 'clinicPrefs';
+    var p = JSON.parse(localStorage.getItem(k) || '{}'), t = p.theme || 'dark';
+    document.documentElement.style.background = t === 'glass' ? '#161618' : t === 'light' ? '#f6f6f7' : '#0b0c0e';
+    document.documentElement.style.colorScheme = t === 'light' ? 'light' : 'dark';
+  } catch (e) { }
+})();
+</script>
+<link rel="preconnect" href="https://pxxgydllfustqkpkfiqn.supabase.co">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="design.css?v=202610290">
+<link rel="stylesheet" href="glass.css?v=202610290">
+<script src="theme.js?v=202610290"></script>
+<script src="pwa.js?v=202610290"></script>
+</head>
+<body class="standalone">
+  <main class="sheet-card wide prose">
+    <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9.5 3.5h5v6h6v5h-6v6h-5v-6h-6v-5h6z"/></svg></div>
+    <h1>شروط استخدام برنامج إدارة العيادة</h1>
+    <p class="lead">باستخدامك البرنامج فأنت توافق على هذه الشروط.</p>
+    <h2>البيانات ملك العيادة</h2>
+    <p>بيانات المرضى والمواعيد والكشوفات والحسابات ملك العيادة وحدها. لا نطّلع عليها ولا نبيعها ولا نشاركها مع أي جهة، ولا نستخدمها لأي غرض غير تشغيل البرنامج لك.</p>
+    <h2>السرية الطبية</h2>
+    <ul>
+      <li>كل حساب (الطبيب والسكرتير) يدخل باسم مستخدم وكلمة مرور خاصة به. لا تشارك كلمة مرورك مع أحد.</li>
+      <li>الطبيب مسؤول عن من يضيفه من حسابات، وعن إيقاف الأجهزة التي لم تعد تُستخدم.</li>
+      <li>سجّل الخروج من أي جهاز مشترك أو عام بعد الاستخدام؛ الخروج يمسح نسخة البيانات من ذلك الجهاز.</li>
+    </ul>
+    <h2>الاشتراك</h2>
+    <ul>
+      <li>يُدفع الاشتراك حسب الخطة المتفق عليها (شهري، أو لعدة أشهر، أو نسخة دائمية).</li>
+      <li>قبل انتهاء الاشتراك بسبعة أيام يظهر تنبيه للطبيب. بعد الانتهاء مهلة ثلاثة أيام يعمل فيها البرنامج كالمعتاد.</li>
+      <li>بعد المهلة يتوقف البرنامج حتى التجديد، <b>دون حذف أي بيانات</b>، ويبقى بإمكانك تنزيل نسخة كاملة من بياناتك.</li>
+    </ul>
+    <h2>النسخ الاحتياطي</h2>
+    <p>البيانات محفوظة على خوادم Supabase. ننصح مع ذلك بتنزيل نسخة احتياطية من الإعدادات ← البيانات بين فترة وأخرى والاحتفاظ بها.</p>
+    <h2>المسؤولية الطبية</h2>
+    <p>البرنامج أداة لتنظيم عمل العيادة. القرار الطبي والتشخيص والوصفات مسؤولية الطبيب وحده.</p>
+    <h2>التواصل</h2>
+    <p>للاشتراك أو التجديد أو أي مشكلة: <a class="ltr" id="tel" href="#"></a></p>
+    <p style="margin-top:24px"><a href="index.html" class="btn">رجوع</a></p>
+  </main>
+  <script src="cloud.js?v=202610290"></script>
+  <script>document.getElementById('tel').textContent = CLOUD.support; document.getElementById('tel').href = 'tel:' + CLOUD.support;</script>
+</body>
+</html>

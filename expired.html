@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<title>انتهى الاشتراك — العيادة</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>
+(function () {
+  // لون الخلفية قبل تحميل التنسيق، حتى لا تومض الصفحة بالأبيض
+  try {
+    var k = /provider\.html$/i.test(location.pathname) ? 'clinicProviderPrefs' : 'clinicPrefs';
+    var p = JSON.parse(localStorage.getItem(k) || '{}'), t = p.theme || 'dark';
+    document.documentElement.style.background = t === 'glass' ? '#161618' : t === 'light' ? '#f6f6f7' : '#0b0c0e';
+    document.documentElement.style.colorScheme = t === 'light' ? 'light' : 'dark';
+  } catch (e) { }
+})();
+</script>
+<link rel="preconnect" href="https://pxxgydllfustqkpkfiqn.supabase.co">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="design.css?v=202610290">
+<link rel="stylesheet" href="glass.css?v=202610290">
+<script src="theme.js?v=202610290"></script>
+<script src="pwa.js?v=202610290"></script>
+</head>
+<body class="standalone">
+  <main class="sheet-card" style="text-align:center">
+    <div class="state-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></div>
+    <h1 id="title">انتهى اشتراك العيادة</h1>
+    <p class="lead" id="clinic" style="margin-bottom:12px"></p>
+    <p style="margin:0;color:var(--text-2)">بيانات عيادتك ومرضاك محفوظة ولن تُحذف. تواصل مع إدارة البرنامج لتجديد الاشتراك، ويعود البرنامج للعمل فور التجديد.</p>
+    <div class="contact">للتجديد: <a class="ltr" id="tel" href="#" style="color:inherit"></a></div>
+    <div style="display:grid;gap:10px">
+      <button class="submit" type="button" id="check">تحقق مرة أخرى</button>
+      <button class="submit secondary" type="button" id="backup">تنزيل نسخة من بيانات العيادة</button>
+      <button class="submit secondary" type="button" id="out">تسجيل الخروج</button>
+    </div>
+    <p class="form-error" id="msg" style="margin-top:14px" role="status"></p>
+  </main>
+  <script src="cloud.js?v=202610290"></script>
+  <script>
+    const msg = document.getElementById('msg');
+    document.getElementById('tel').textContent = CLOUD.support;
+    document.getElementById('tel').href = 'tel:' + CLOUD.support;
+    Auth.guard().then(async m => {
+      if (!m) return;
+      const st = (await Auth.fetchSub()) || Auth.cachedSub();
+      if (st.status === 'suspended') document.getElementById('title').textContent = 'العيادة موقوفة مؤقتًا';
+      try { const r = await Auth.sb.from('clinic_docs').select('data').eq('clinic_id', m.clinic_id).eq('col', 'settings').eq('id', 'clinic').maybeSingle(); document.getElementById('clinic').textContent = (r.data && r.data.data && r.data.data.clinicName) || ''; } catch (e) { }
+      Auth.applySub(st);
+    });
+    document.getElementById('check').addEventListener('click', async e => {
+      e.target.disabled = true; msg.textContent = '';
+      const st = await Auth.fetchSub();
+      if (!st) msg.textContent = 'تعذّر التحقق. تحقق من الاتصال.';
+      else if (Auth.blocked(st)) msg.textContent = 'الاشتراك لم يُجدَّد بعد.';
+      Auth.applySub(st);
+      e.target.disabled = false;
+    });
+    document.getElementById('out').addEventListener('click', () => Auth.logout());
+    // البيانات ملك العيادة: تُنزَّل كاملة بصيغة النسخة الاحتياطية، وتُستعاد من الإعدادات بعد التجديد
+    document.getElementById('backup').addEventListener('click', async e => {
+      e.target.disabled = true; msg.textContent = 'جارٍ تجهيز النسخة…';
+      try {
+        const out = { app: 'clinic', version: 1, exportedAt: new Date().toISOString(), settings: {} };
+        for (let from = 0; ; from += 1000) {
+          const { data, error } = await Auth.sb.from('clinic_docs').select('col, id, data').eq('clinic_id', Auth.member.clinic_id).eq('deleted', false).order('col').order('id').range(from, from + 999);
+          if (error) throw error;
+          data.forEach(r => { if (r.col === 'settings') { if (r.id === 'clinic') out.settings = r.data; } else (out[r.col] = out[r.col] || []).push({ ...r.data, id: r.id }); });
+          if (data.length < 1000) break;
+        }
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }));
+        a.download = 'نسخة-احتياطية-العيادة-' + new Date().toISOString().slice(0, 10) + '.json';
+        document.body.appendChild(a); a.click(); a.remove();
+        msg.textContent = '';
+      } catch (err) { msg.textContent = 'تعذّر تنزيل النسخة. تحقق من الاتصال.'; }
+      e.target.disabled = false;
+    });
+  </script>
+</body>
+</html>
