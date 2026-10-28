@@ -152,12 +152,11 @@ function pLabs(p, { labs }) {
   return `<div class="tbl"><table><thead><tr><th>الفحص</th><th>تاريخ الطلب</th><th>النتيجة</th><th>تاريخ النتيجة</th><th></th></tr></thead><tbody>${labs.map(({ v, l, i }) => `<tr><td><b>${esc(l.name)}</b></td><td class="muted">${esc(fmtDate(v.date))}</td><td>${l.result ? `<span style="white-space:pre-wrap">${esc(l.result)}</span>${l.flag === 'abnormal' ? ' ' + pill('bad', 'غير طبيعي') : l.flag === 'normal' ? ' ' + pill('ok', 'طبيعي') : ''}` : pill('warn', 'بانتظار النتيجة')}</td><td class="muted">${l.resultDate ? esc(fmtDate(l.resultDate)) : ''}</td><td><div class="acts">${W() ? `<button class="btn sm" data-act="labResult" data-id="${v.id}|${i}">${l.result ? 'تعديل' : 'إدخال النتيجة'}</button>` : ''}</div></td></tr>`).join('')}</tbody></table></div>`;
 }
 function pFiles(p, { files }) {
-  const can = (!!app.assets || app.mode === 'device' || app.mode === 'cloud') && W();
-  let h = `<div class="head" style="margin-bottom:12px"><div class="grow muted" style="font-size:.9rem">صور التحاليل والسونار والأشعة والتقارير الخارجية (صور أو PDF حتى ${app.mode === 'device' ? 8 : 20} ميغابايت).</div>${can ? `<label class="btn primary" style="cursor:pointer">${icon('<path d="M12 16V4M7 9l5-5 5 5M5 20h14"/>')}رفع ملف<input type="file" id="upFile" accept="image/*,application/pdf" data-change="upload" data-pid="${p.id}" hidden multiple></label>` : ''}</div>`;
-  if (!can && W()) h +=`<div class="banner" style="margin-bottom:12px">رفع الملفات متاح لمالك العيادة ومن لديه صلاحية «محرر»، وعند فتح الصفحة من claude.ai.</div>`;
+  const can = W();
+  let h = `<div class="head" style="margin-bottom:12px"><div class="grow muted" style="font-size:.9rem">صور التحاليل والسونار والأشعة والتقارير الخارجية (صور أو PDF حتى 20 ميغابايت).</div>${can ? `<label class="btn primary" style="cursor:pointer">${icon('<path d="M12 16V4M7 9l5-5 5 5M5 20h14"/>')}رفع ملف<input type="file" id="upFile" accept="image/*,application/pdf" data-change="upload" data-pid="${p.id}" hidden multiple></label>` : ''}</div>`;
   if (!files.length) return h + `<div class="panel"><div class="empty"><b>لا مرفقات</b>ارفع صورة تحليل أو أشعة لتبقى في ملف المريض.</div></div>`;
   return h + `<div class="files">${[...files].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(f => {
-    const src = f.data || (f.path ? Cloud.thumb(f.path) : '/_blob/' + f.assetId);
+    const src = f.data || (f.path ? Cloud.thumb(f.path) : '');
     const isImg = (f.type || '').startsWith('image/');
     const open = f.data || f.path ? `data-act="openFile" data-id="${f.id}" href="#"` : `href="${src}" target="_blank" rel="noopener"`;
     return `<div class="file"><a class="th" ${open}>${isImg ? `<img src="${src}" alt="${esc(f.name)}" loading="lazy" data-blob="1">` : icon('<path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4M9 13h6M9 17h6"/>')}</a>
@@ -238,7 +237,7 @@ ACT.labResult = key => {
 /* ---------- attachments ---------- */
 CHG.upload = async t => {
   const pid = t.dataset.pid, fl = [...t.files]; t.value = '';
-  if (!fl.length || !(app.assets || app.mode === 'device' || app.mode === 'cloud')) return;
+  if (!fl.length || !W()) return;
   const f0 = fl[0];
   openModal(fl.length > 1 ? `رفع ${fl.length} ملفات` : 'رفع ملف', `<form id="mForm" class="form">
     <div class="full muted">${fl.map(f => esc(f.name)).join('<br>')}</div>
@@ -249,31 +248,20 @@ CHG.upload = async t => {
     submit: async d => {
       let ok = 0;
       for (const f of fl) {
-        const lim = app.mode === 'device' ? 8 : 20;
-        if (f.size > lim * 1024 * 1024) { toast(`${f.name}: الملف أكبر من ${lim} ميغابايت`); continue; }
-        if (app.mode === 'device') {
+        if (f.size > 20 * 1024 * 1024) { toast(`${f.name}: الملف أكبر من 20 ميغابايت`); continue; }
+        const rec = { id: uid('f'), patientId: pid, name: f.name, title: fl.length === 1 ? (d.title || f.name) : f.name.replace(/\.[^.]+$/, ''), cat: d.cat, date: d.date || today() };
+        if (app.mode === 'demo') {
+          // التجربة: الملف يبقى في الذاكرة حتى إغلاق الصفحة
           const data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(f); });
-          await save('files', { id: uid('f'), patientId: pid, data, name: f.name, title: fl.length === 1 ? (d.title || f.name) : f.name.replace(/\.[^.]+$/, ''), type: f.type, size: f.size, cat: d.cat, date: d.date || today() });
+          await save('files', { ...rec, data, type: f.type, size: f.size });
           ok++; continue;
         }
-        if (app.mode === 'cloud') {
-          try {
-            const r = await Cloud.upload(f);
-            await save('files', { id: uid('f'), patientId: pid, path: r.path, name: f.name, title: fl.length === 1 ? (d.title || f.name) : f.name.replace(/\.[^.]+$/, ''), type: r.contentType, size: r.sizeBytes, cat: d.cat, date: d.date || today() });
-            ok++;
-          } catch (e) {
-            toast(f.name + ': ' + ({ cloud_too_large: 'الملف كبير جدًا', cloud_denied: Cloud.locked() ? 'الاشتراك منتهٍ' : 'لا صلاحية لرفع الملفات' }[e && e.code] || 'تعذّر الرفع. تحقق من الاتصال.'));
-          }
-          continue;
-        }
         try {
-          const type = f.type || (f.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : '');
-          const r = await app.assets.upload(f, type ? { type } : undefined);
-          await save('files', { id: uid('f'), patientId: pid, assetId: r.id, name: f.name, title: fl.length === 1 ? (d.title || f.name) : f.name.replace(/\.[^.]+$/, ''), type: r.contentType, size: r.sizeBytes, cat: d.cat, date: d.date || today() });
+          const r = await Cloud.upload(f);
+          await save('files', { ...rec, path: r.path, type: r.contentType, size: r.sizeBytes });
           ok++;
         } catch (e) {
-          const m = { too_large: 'الملف كبير جدًا', unsupported_type: 'نوع الملف غير مدعوم (صور أو PDF فقط)', quota_or_state: 'امتلأت مساحة المرفقات', rate_limited: 'محاولات كثيرة، انتظر قليلًا' }[e && e.code] || 'تعذّر الرفع';
-          toast(f.name + ': ' + m);
+          toast(f.name + ': ' + ({ cloud_too_large: 'الملف كبير جدًا', cloud_denied: 'لا صلاحية لرفع الملفات' }[e && e.code] || 'تعذّر الرفع. تحقق من الاتصال.'));
         }
       }
       if (ok) toast(ok === 1 ? 'رُفع الملف' : `رُفع ${ok} ملفات`);
@@ -299,7 +287,6 @@ ACT.delFile = id => {
   const f = byId('files', id); if (!f) return;
   confirmBox(`حذف «${esc(f.title || f.name)}» نهائيًا من ملف المريض؟`, async () => {
     if (f.path && app.mode === 'cloud') { try { await Cloud.delFile(f.path); } catch (e) { toast('تعذّر حذف الملف. تحقق من الاتصال.'); throw e; } }
-    if (app.assets && f.assetId) { try { await app.assets.delete(f.assetId); } catch (e) { if (e && e.code === 'not_uploader') { toast('هذا الملف رفعه شخص آخر؛ يحذفه المالك فقط.'); throw e; } } }
     await remove('files', id); toast('حُذف الملف');
   });
 };

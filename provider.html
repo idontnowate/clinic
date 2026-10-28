@@ -2,358 +2,238 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- صفحة المزود: غير مرتبطة بأي صفحة، ولا تظهر في محركات البحث -->
+<meta name="robots" content="noindex, nofollow">
 <title>لوحة مزود العيادات</title>
+<script>
+(function () {
+  // لون الخلفية قبل تحميل التنسيق، حتى لا تومض الصفحة بالأبيض
+  try {
+    var k = /provider\.html$/i.test(location.pathname) ? 'clinicProviderPrefs' : 'clinicPrefs';
+    var p = JSON.parse(localStorage.getItem(k) || '{}'), t = p.theme || 'dark';
+    document.documentElement.style.background = t === 'glass' ? '#161618' : t === 'light' ? '#f6f6f7' : '#0b0c0e';
+    document.documentElement.style.colorScheme = t === 'light' ? 'light' : 'dark';
+  } catch (e) { }
+})();
+</script>
+<link rel="preconnect" href="https://pxxgydllfustqkpkfiqn.supabase.co">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="design.css?v=202610290">
+<link rel="stylesheet" href="glass.css?v=202610290">
+<script src="theme.js?v=202610290"></script>
 <style>
-/* Same clinical-teal palette as the clinic app, so the provider recognises the product it sells. */
-:root{
-  --bg:#f1f5f4; --surface:#fff; --surface-2:#e8efed; --ink:#122a2e; --ink-2:#3c5559; --muted:#5f7477; --line:#d4dfdc; --line-2:#c2d1cd;
-  --accent:#0b6a62; --accent-2:#0e857b; --accent-ink:#fff; --accent-soft:#d5ebe7; --side:#0f3b39; --side-ink:#d8ecea; --side-muted:#8fb3af;
-  --danger:#b2212d; --danger-soft:#fbe3e5; --warn:#8f5606; --warn-soft:#fbefd2; --ok:#2b7437; --ok-soft:#ddf0df; --info:#2a5aa3; --info-soft:#e1e9f8;
-  --shadow:0 12px 34px rgba(9,40,38,.16);
-  --f-display:"Reem Kufi",Tahoma,sans-serif; --f-body:"IBM Plex Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif;
-  color-scheme:light;
-}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0d1719; --surface:#142225; --surface-2:#1a2c30; --ink:#e1edeb; --ink-2:#bcd0cd; --muted:#8fa6a8; --line:#273c41; --line-2:#335056;
-  --accent:#45b8ab; --accent-2:#5fcabd; --accent-ink:#04211e; --accent-soft:#143a37; --side:#0a1416; --side-ink:#d1e6e3; --side-muted:#7f9d9a;
-  --danger:#f17b85; --danger-soft:#3a1c20; --warn:#e8b252; --warn-soft:#372a12; --ok:#7cc98b; --ok-soft:#163120; --info:#93b5f1; --info-soft:#1b2942;
-  --shadow:0 12px 34px rgba(0,0,0,.5); color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#0d1719; --surface:#142225; --surface-2:#1a2c30; --ink:#e1edeb; --ink-2:#bcd0cd; --muted:#8fa6a8; --line:#273c41; --line-2:#335056;
-  --accent:#45b8ab; --accent-2:#5fcabd; --accent-ink:#04211e; --accent-soft:#143a37; --side:#0a1416; --side-ink:#d1e6e3; --side-muted:#7f9d9a;
-  --danger:#f17b85; --danger-soft:#3a1c20; --warn:#e8b252; --warn-soft:#372a12; --ok:#7cc98b; --ok-soft:#163120; --info:#93b5f1; --info-soft:#1b2942;
-  --shadow:0 12px 34px rgba(0,0,0,.5); color-scheme:dark}
-*{box-sizing:border-box}
-html,body{background:var(--bg);margin:0}
-body{color:var(--ink);font:15px/1.6 var(--f-body)}
-button,input,select,textarea{font:inherit;color:inherit}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-[hidden]{display:none!important}
-.ltr{direction:ltr;unicode-bidi:isolate}
-.muted{color:var(--muted)}
-.num,td{font-variant-numeric:tabular-nums}
-.bar{background:var(--side);color:var(--side-ink);padding:max(14px,env(safe-area-inset-top,0px)) 20px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.bar b{font-family:var(--f-display);font-size:1.15rem}
-.bar .grow{margin-inline-end:auto}
-.bar small{color:var(--side-muted)}
-.bar .btn{background:transparent;color:var(--side-ink);border-color:#2a5a57}
-.wrap{max-width:1180px;margin:0 auto;padding:20px}
-.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-2);background:var(--surface);border-radius:8px;padding:6px 14px;cursor:pointer;font-weight:500;white-space:nowrap}
-.btn:hover{background:var(--surface-2)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
-.btn.primary:hover{background:var(--accent-2)}
-.btn.sm{padding:3px 10px;font-size:.84rem}
-.btn.danger{color:var(--danger)}
-.btn.danger-fill{background:var(--danger);border-color:var(--danger);color:#fff}
-.btn[disabled]{opacity:.55;cursor:default}
-.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
-.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
-.kpi .l{color:var(--muted);font-size:.84rem}
-.kpi .v{font-size:1.7rem;font-weight:700;line-height:1.3}
-.kpi.warn{border-color:var(--warn);background:var(--warn-soft)} .kpi.warn .l,.kpi.warn .v{color:var(--warn)}
-.kpi.bad .v{color:var(--danger)}
-.tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-.tools input{flex:1;min-width:200px;border:1px solid var(--line-2);border-radius:8px;padding:7px 12px;background:var(--surface)}
-.seg{display:inline-flex;background:var(--surface-2);border-radius:9px;padding:3px;gap:2px;flex-wrap:wrap}
-.seg button{border:0;background:none;padding:5px 12px;border-radius:7px;cursor:pointer;font-size:.88rem;color:var(--muted)}
-.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600}
-.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
-table{width:100%;border-collapse:collapse;min-width:900px}
-th,td{padding:10px 14px;text-align:start;border-bottom:1px solid var(--line);vertical-align:middle}
-th{font-size:.78rem;color:var(--muted);font-weight:600;background:var(--surface-2);white-space:nowrap}
-tr:last-child td{border-bottom:0}
-td .s{display:block;font-size:.8rem;color:var(--muted)}
-td .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.pill{display:inline-block;padding:1px 10px;border-radius:999px;font-size:.78rem;font-weight:600;white-space:nowrap}
-.p-ok{background:var(--ok-soft);color:var(--ok)} .p-warn{background:var(--warn-soft);color:var(--warn)} .p-bad{background:var(--danger-soft);color:var(--danger)} .p-n{background:var(--surface-2);color:var(--muted)} .p-info{background:var(--info-soft);color:var(--info)}
-.empty{padding:40px 20px;text-align:center;color:var(--muted)}
-.empty b{display:block;color:var(--ink);font-size:1.05rem}
-/* login */
-.gate{min-height:100vh;display:grid;place-items:center;padding:24px 16px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:14px}
-.card h1{font-family:var(--f-display);margin:0;font-size:1.4rem}
-label{display:flex;flex-direction:column;gap:4px;font-size:.84rem;color:var(--muted);font-weight:500;min-width:0}
-label input,label select,label textarea{border:1px solid var(--line-2);border-radius:8px;padding:8px 11px;background:var(--surface);color:var(--ink);width:100%}
-.err{background:var(--danger-soft);color:var(--danger);padding:8px 12px;border-radius:8px;font-size:.9rem}
-.hint{background:var(--info-soft);color:var(--info);padding:8px 12px;border-radius:8px;font-size:.88rem}
-/* dialog */
-dialog{border:1px solid var(--line);border-radius:14px;padding:0;width:min(640px,calc(100vw - 24px));background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
-dialog::backdrop{background:rgba(6,22,24,.55)}
-.dh{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)}
-.dh h3{margin:0;font-family:var(--f-display);font-size:1.15rem}
-.x{background:none;border:0;font-size:1.5rem;cursor:pointer;color:var(--muted);line-height:1;padding:2px 8px;border-radius:6px}
-.db{padding:16px 18px}
-.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.form .full{grid-column:1/-1}
-.sec{grid-column:1/-1;font-weight:700;font-size:.9rem;border-top:1px solid var(--line);padding-top:10px}
-.foot{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;padding-top:4px}
-.chk{flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-size:.92rem}
-.chk input{width:auto}
-.mem{list-style:none;margin:0 0 14px;padding:0;border:1px solid var(--line);border-radius:10px}
-.mem li{display:flex;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-.mem li:last-child{border-bottom:0}
-.mem .g{flex:1;min-width:160px}
-.toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;z-index:9;box-shadow:var(--shadow);max-width:calc(100vw - 32px)}
-@media (max-width:760px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.form{grid-template-columns:minmax(0,1fr)}.wrap{padding:16px}}
+  .pv { width: min(1280px, 100%); margin: 0 auto; padding: max(28px, env(safe-area-inset-top, 0px)) 24px 70px }
+  .pv-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px }
+  .pv-head h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.01em }
+  .pv-head p { margin: 2px 0 0; color: var(--muted); font-size: 13.5px }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+  .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px }
+  .summary .kpi.main { background: var(--hero-bg); color: var(--hero-text); border-color: transparent }
+  .summary .kpi.main .l { color: var(--hero-muted) }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center }
+  .toolbar input { flex: 1 1 260px; height: 42px }
+  .chips button { border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2); border-radius: 999px; padding: 6px 14px; cursor: pointer; font-weight: 600; font-size: .86rem }
+  .chips button[aria-pressed="true"] { background: var(--primary); color: var(--primary-text); border-color: var(--primary) }
+  td small { display: block; color: var(--muted); font-size: 12.5px }
+  td .acts { justify-content: flex-start }
+  .empty-row td { text-align: center !important; padding: 44px 10px !important; color: var(--muted) }
+  dialog { border: 1px solid var(--border); border-radius: 20px; padding: 24px; background: var(--surface); color: var(--text); box-shadow: var(--shadow-lg); width: min(860px, calc(100vw - 24px)); max-height: calc(100vh - 32px) }
+  dialog.narrow { width: min(480px, calc(100vw - 24px)) }
+  dialog::backdrop { background: rgba(0, 0, 0, .55) }
+  html[data-glass="on"] dialog { background: var(--glass-strong); -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%); border-color: var(--glass-edge); border-radius: 26px }
+  .dlg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px }
+  .dlg-head h2 { margin: 0; font-size: 1.25rem }
+  .dlg-head p { margin: 4px 0 0; color: var(--muted); font-size: 13px }
+  .x-btn { flex: none; width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; font-size: 18px; line-height: 1 }
+  .block { padding: 18px 0; border-top: 1px solid var(--border) }
+  .block:first-of-type { border-top: 0; padding-top: 0 }
+  .block h3 { margin: 0 0 14px; font-size: 15px; font-weight: 700 }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px }
+  .grid .full { grid-column: 1 / -1 }
+  .field select, .field textarea { width: 100% }
+  .field input { height: 42px }
+  .toggle { display: flex; align-items: center; justify-content: space-between; gap: 14px; font-size: 14px; font-weight: 500; color: var(--text); cursor: pointer }
+  .toggle small { display: block; color: var(--muted); font-size: 12.5px; font-weight: 400 }
+  .actions-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 16px }
+  .hint-t { color: var(--muted); font-size: 13px }
+  .msg { font-size: 13.5px; font-weight: 500; color: var(--danger-text); margin-top: 10px }
+  .msg:empty { display: none }
+  .member { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; padding: 12px 0; border-top: 1px solid var(--border) }
+  .member:first-child { border-top: 0 }
+  .member small { display: block; color: var(--muted); font-size: 12.5px }
+  .flash { position: fixed; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: var(--primary); color: var(--primary-text); padding: 10px 18px; border-radius: 12px; z-index: 99; box-shadow: var(--shadow-lg); font-weight: 600; font-size: .9rem; max-width: calc(100vw - 32px) }
+  .pw-out { font-size: 1.2rem; font-weight: 700; letter-spacing: .05em; text-align: center; background: var(--surface-2); border-radius: 12px; padding: 14px; margin: 10px 0 }
+  @media (max-width: 760px) { .summary { grid-template-columns: repeat(2, minmax(0, 1fr)) } .grid { grid-template-columns: minmax(0, 1fr) } .pv { padding-inline: 16px } dialog { padding: 18px } }
 </style>
 </head>
 <body>
-<div class="gate" id="gate" hidden>
-  <form class="card" id="gForm">
-    <h1>لوحة مزود العيادات</h1>
-    <div class="muted" style="margin-top:-8px">لإدارة نسخ العيادات المبيعة واشتراكاتها. للمزود فقط.</div>
-    <label>البريد الإلكتروني<input id="gEmail" type="email" autocomplete="username" dir="ltr" required></label>
-    <label>كلمة المرور<input id="gPass" type="password" autocomplete="current-password" dir="ltr" required></label>
-    <div class="err" id="gErr" hidden></div>
-    <button class="btn primary" id="gBtn" type="submit" style="justify-content:center">دخول</button>
-  </form>
-</div>
-
-<div id="appv" hidden>
-  <header class="bar">
-    <div class="grow"><b>لوحة مزود العيادات</b> <small id="who"></small></div>
-    <button class="btn sm" id="reload" type="button">تحديث</button>
-    <button class="btn sm" id="logout" type="button">خروج</button>
-  </header>
-  <main class="wrap">
-    <div class="kpis" id="kpis"></div>
-    <div class="tools">
-      <input type="search" id="q" placeholder="بحث باسم العيادة أو الهاتف أو اسم المستخدم">
-      <div class="seg" id="filt">
-        <button type="button" data-f="all" aria-pressed="true">الكل</button>
-        <button type="button" data-f="expiring">تنتهي قريبًا</button>
-        <button type="button" data-f="off">منتهية / موقوفة</button>
-      </div>
-      <button class="btn primary" type="button" id="newClinic">+ عيادة جديدة</button>
+  <!-- ===== الدخول ===== -->
+  <section class="standalone" id="loginView" hidden style="min-height:100vh;display:grid;place-items:center;padding:24px 16px">
+    <div class="sheet-card">
+      <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.5 3.2 8.4 7.5 9.5 4.3-1.1 7.5-5 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/></svg></div>
+      <h1>لوحة مزود العيادات</h1>
+      <p class="lead">للمزود فقط. سجّل الدخول بحساب المزود (نفس حساب مزود المتجر).</p>
+      <form id="loginForm" novalidate>
+        <label class="field">البريد الإلكتروني<input name="email" type="email" autocomplete="username" dir="ltr" required></label>
+        <label class="field">كلمة المرور<input name="password" type="password" autocomplete="current-password" dir="ltr" required></label>
+        <div class="form-error" id="loginMsg" role="alert"></div>
+        <button class="submit" type="submit" id="loginBtn">دخول</button>
+      </form>
     </div>
-    <div id="list"><div class="empty">جارٍ التحميل…</div></div>
+  </section>
+
+  <!-- ===== اللوحة ===== -->
+  <main class="pv" id="panel" hidden>
+    <header class="pv-head">
+      <div><h1>لوحة مزود العيادات</h1><p id="whoami"></p></div>
+      <div class="row">
+        <button class="btn" type="button" id="refreshBtn">تحديث</button>
+        <button class="btn primary" type="button" id="newBtn">+ عيادة جديدة</button>
+        <button class="btn danger" type="button" id="signOutBtn">خروج</button>
+      </div>
+    </header>
+    <section class="summary" aria-label="ملخص الاشتراكات">
+      <div class="kpi main"><div class="l">العيادات المشتركة</div><div class="v" id="sumAll">—</div></div>
+      <div class="kpi"><div class="l">فعّالة</div><div class="v" id="sumActive">—</div></div>
+      <div class="kpi"><div class="l">تنتهي قريبًا أو في المهلة</div><div class="v" id="sumSoon">—</div></div>
+      <div class="kpi"><div class="l">منتهية أو موقوفة</div><div class="v" id="sumStopped">—</div></div>
+    </section>
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="ابحث باسم العيادة أو الطبيب أو المستخدم أو الهاتف…" autocomplete="off">
+      <div class="chips row" role="group" aria-label="تصفية حسب الحالة">
+        <button type="button" data-filter="all" aria-pressed="true">الكل</button>
+        <button type="button" data-filter="active" aria-pressed="false">فعّالة</button>
+        <button type="button" data-filter="soon" aria-pressed="false">تنتهي قريبًا</button>
+        <button type="button" data-filter="stopped" aria-pressed="false">منتهية أو موقوفة</button>
+      </div>
+    </div>
+    <section class="tbl">
+      <table>
+        <thead><tr><th>العيادة</th><th>الطبيب</th><th>الخطة</th><th>ينتهي في</th><th>الحالة</th><th>المرضى</th><th>الأجهزة</th><th>آخر نشاط</th><th>إجراءات</th></tr></thead>
+        <tbody id="rows"><tr class="empty-row"><td colspan="9">جارٍ التحميل…</td></tr></tbody>
+      </table>
+    </section>
   </main>
-</div>
+  <div class="flash" id="flash" role="status" hidden></div>
 
-<dialog id="dlg"><div class="dh"><h3 id="dTitle"></h3><button class="x" type="button" onclick="dlg.close()" aria-label="إغلاق">×</button></div><div class="db" id="dBody"></div></dialog>
-<div class="toast" id="toast" role="status" hidden></div>
+  <!-- ===== إدارة عيادة ===== -->
+  <dialog id="clinicDialog">
+    <div class="dlg-head"><div><h2 id="cdTitle"></h2><p id="cdSub"></p></div><button class="x-btn" type="button" data-close aria-label="إغلاق">×</button></div>
+    <div class="block">
+      <h3>الاشتراك</h3>
+      <form id="subForm" novalidate>
+        <div class="grid">
+          <label class="field">اسم العيادة<input name="clinicName"></label>
+          <label class="field">هاتف صاحب العيادة<input name="ownerPhone" type="tel" dir="ltr"></label>
+          <label class="field">الخطة<select name="plan"></select></label>
+          <label class="field">السعر (د.ع)<input name="price" type="number" min="0" step="1" inputmode="numeric"></label>
+          <label class="field" data-exp>تاريخ الانتهاء<input name="expiresAt" type="date"></label>
+          <label class="field">ملاحظات<input name="notes"></label>
+          <label class="toggle full"><span>إيقاف العيادة يدويًا<small>يتوقف البرنامج عندهم فورًا حتى لو كان الاشتراك ساريًا. البيانات لا تُحذف.</small></span><input type="checkbox" class="switch" name="suspended"></label>
+        </div>
+        <div class="msg" id="subMsg" role="alert"></div>
+        <div class="actions-bar">
+          <div class="row" id="extendRow"><span class="hint-t">تمديد سريع:</span>
+            <button class="btn" type="button" data-extend="1">+ شهر</button>
+            <button class="btn" type="button" data-extend="3">+ 3 أشهر</button>
+            <button class="btn" type="button" data-extend="6">+ 6 أشهر</button>
+            <button class="btn" type="button" data-extend="12">+ سنة</button>
+          </div>
+          <button class="btn primary" type="submit">حفظ الاشتراك</button>
+        </div>
+      </form>
+    </div>
+    <div class="block">
+      <h3>الأجهزة</h3>
+      <form id="devForm" novalidate>
+        <div class="grid">
+          <label class="field">الحد الأعلى لعدد الأجهزة<input name="limit" type="number" min="0" max="1000" step="1" inputmode="numeric"></label>
+          <p class="hint-t full" style="margin:0">0 = بلا حد. الجهاز الذي لم يُستخدم 30 يومًا والجهاز الموقوف لا يُحسبان. الطبيب يدخل دائمًا ليستطيع إيقاف جهاز قديم، والسكرتير يُمنع من جهاز جديد عند الوصول للحد.</p>
+        </div>
+        <div class="msg" id="devMsg" role="alert"></div>
+        <div class="actions-bar"><div class="row"><span class="hint-t">زيادة الحد:</span><button class="btn" type="button" data-dev-add="1">+1 جهاز</button><button class="btn" type="button" data-dev-add="2">+2 جهاز</button></div><button class="btn primary" type="submit">حفظ حد الأجهزة</button></div>
+      </form>
+      <div class="tbl" style="margin-top:14px"><table><thead><tr><th>الجهاز</th><th>المستخدم</th><th>آخر نشاط</th><th>الحالة</th></tr></thead><tbody id="devRows"></tbody></table></div>
+    </div>
+    <div class="block">
+      <h3>الحسابات</h3>
+      <div id="members"></div>
+      <form id="addMemberForm" class="grid" novalidate style="margin-top:14px">
+        <label class="field">الاسم الظاهر<input name="name" placeholder="سارة (الاستقبال)"></label>
+        <label class="field">اسم المستخدم (إنجليزي)<input name="username" dir="ltr" autocomplete="off"></label>
+        <label class="field">كلمة المرور<input name="password" dir="ltr" autocomplete="off"></label>
+        <label class="field">الصلاحية<select name="role"><option value="staff">سكرتير</option><option value="admin">طبيب / مدير</option></select></label>
+        <div class="full row"><button class="btn" type="submit">+ إضافة حساب</button><button class="btn" type="button" data-generate="addMemberForm">توليد كلمة مرور</button></div>
+        <div class="msg full" id="memberMsg" role="alert"></div>
+      </form>
+    </div>
+    <div class="block">
+      <h3>البيانات والدعم</h3>
+      <div class="facts" style="margin-bottom:14px">
+        <div class="fact">معرّف العيادة<b id="cdId" dir="ltr"></b></div>
+        <div class="fact">آخر نشاط<b id="cdActivity"></b></div>
+        <div class="fact">السجلات المحفوظة<b id="cdRows"></b></div>
+        <div class="fact">تاريخ الاشتراك<b id="cdSince"></b></div>
+      </div>
+      <div class="row"><button class="btn" type="button" id="exportBtn">تنزيل نسخة احتياطية</button><span class="hint-t">تُستعاد من الإعدادات ← النسخ الاحتياطي داخل البرنامج.</span></div>
+    </div>
+    <div class="block">
+      <h3>حذف العيادة نهائيًا</h3>
+      <p class="hint-t" style="margin-top:0">يحذف العيادة وكل حساباتها ومرضاها وكشوفاتها وفواتيرها ومرفقاتها، ولا يمكن التراجع. نزّل نسخة احتياطية أولًا.</p>
+      <form class="row" id="deleteForm"><input name="confirm" autocomplete="off" placeholder="اكتب: حذف" style="max-width:180px"><button class="btn danger" type="submit">حذف العيادة نهائيًا</button></form>
+    </div>
+  </dialog>
 
-<script src="vendor/supabase-js-2.45.4.js"></script>
-<script>
-'use strict';
-// نفس إعدادات cloud.js
-const SUPABASE_URL = 'https://pxxgydllfustqkpkfiqn.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_I2L_KEOwIXjyuCOue4w_3g_MMhYImIU';
-const FN = SUPABASE_URL + '/functions/v1/clinic-admin';
-const LIFETIME = 'دائمي';
-const PLANS = ['شهري', 'كل 3 أشهر', 'كل 6 أشهر', 'سنوي', LIFETIME];
-const PLAN_MONTHS = { 'شهري': 1, 'كل 3 أشهر': 3, 'كل 6 أشهر': 6, 'سنوي': 12 };
+  <!-- ===== عيادة جديدة ===== -->
+  <dialog id="newDialog">
+    <div class="dlg-head"><div><h2>عيادة جديدة</h2><p>ينشئ العيادة وحساب الطبيب واشتراكها معًا.</p></div><button class="x-btn" type="button" data-close aria-label="إغلاق">×</button></div>
+    <form id="newForm" novalidate>
+      <div class="block"><h3>العيادة</h3><div class="grid">
+        <label class="field full">اسم العيادة *<input name="clinicName" required placeholder="عيادة د. أحمد للباطنية"></label>
+        <label class="field">اسم الطبيب<input name="doctorName" placeholder="أحمد علي (بدون «د.»)"></label>
+        <label class="field">الاختصاص<input name="specialty" placeholder="أخصائي الباطنية"></label>
+        <label class="field">هاتف صاحب العيادة<input name="ownerPhone" type="tel" dir="ltr" placeholder="07XX XXX XXXX"></label>
+        <label class="field">المحافظة<input name="province" value="بغداد"></label>
+      </div></div>
+      <div class="block"><h3>حساب الطبيب (مدير العيادة)</h3><div class="grid">
+        <label class="field">اسم المستخدم (إنجليزي) *<input name="adminUsername" required dir="ltr" autocomplete="off" placeholder="dr.ahmed"></label>
+        <label class="field">كلمة المرور *<input name="adminPassword" required dir="ltr" autocomplete="off"></label>
+        <div class="full row"><button class="btn" type="button" data-generate="newForm" data-field="adminPassword">توليد كلمة مرور</button></div>
+      </div></div>
+      <div class="block"><h3>الاشتراك</h3><div class="grid">
+        <label class="field">الخطة<select name="plan"></select></label>
+        <label class="field" data-exp>تاريخ الانتهاء<input name="expiresAt" type="date"></label>
+        <label class="field">السعر (د.ع)<input name="price" type="number" min="0" step="1" inputmode="numeric"></label>
+        <label class="field">حد الأجهزة (0 = بلا حد)<input name="deviceLimit" type="number" min="0" max="1000" value="0" inputmode="numeric"></label>
+        <label class="field full">ملاحظات<input name="notes"></label>
+      </div></div>
+      <div class="msg" id="newMsg" role="alert"></div>
+      <div class="actions-bar"><span class="hint-t">بعد الإنشاء أرسل للطبيب الرابط واسم المستخدم وكلمة المرور.</span><button class="btn primary" type="submit">إنشاء العيادة</button></div>
+    </form>
+  </dialog>
 
-const $ = s => document.querySelector(s);
-const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const NF = new Intl.NumberFormat('ar-IQ-u-nu-latn');
-const fmtD = s => s ? new Intl.DateTimeFormat('ar-IQ-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(s.length === 10 ? s + 'T12:00:00' : s)) : '—';
-const isoToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-function addMonths(iso, n) { const d = new Date(iso + 'T12:00:00'); const day = d.getDate(); d.setMonth(d.getMonth() + n); if (d.getDate() < day) d.setDate(0); return d.toISOString().slice(0, 10); }
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, storageKey: 'clinic-provider-auth' } });
-let DATA = [], filter = 'all';
-const dlg = $('#dlg');
+  <!-- ===== كلمة مرور ===== -->
+  <dialog class="narrow" id="pwDialog">
+    <div class="dlg-head"><div><h2>كلمة مرور جديدة</h2><p id="pwSub"></p></div><button class="x-btn" type="button" data-close aria-label="إغلاق">×</button></div>
+    <form id="pwForm" novalidate class="grid" style="grid-template-columns:minmax(0,1fr)">
+      <label class="field">كلمة المرور الجديدة<input name="password" dir="ltr" autocomplete="off"></label>
+      <div class="row"><button class="btn" type="button" data-generate="pwForm">توليد</button><button class="btn primary" type="submit">حفظ</button></div>
+      <div class="msg" id="pwMsg" role="alert"></div>
+    </form>
+  </dialog>
 
-let toastT;
-function toast(m) { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3500); }
+  <!-- ===== تم إنشاء العيادة ===== -->
+  <dialog class="narrow" id="doneDialog">
+    <div class="dlg-head"><div><h2>أُنشئت العيادة</h2><p>أرسل هذه البيانات للطبيب.</p></div><button class="x-btn" type="button" data-close aria-label="إغلاق">×</button></div>
+    <div id="doneBody"></div>
+    <div class="row" style="margin-top:14px"><button class="btn primary" type="button" id="copyDone">نسخ الرسالة</button><a class="btn" id="waDone" target="_blank" rel="noopener">إرسال بالواتساب</a></div>
+  </dialog>
 
-async function call(action, body = {}) {
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) throw new Error('يجب تسجيل الدخول');
-  let r;
-  try {
-    r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token, apikey: SUPABASE_KEY }, body: JSON.stringify({ action, ...body }) });
-  } catch (e) { throw new Error('تعذّر الاتصال بالخادم. تأكد أن الدالة clinic-admin منشورة.'); }
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) { const e = new Error(j.error || 'خطأ ' + r.status); e.status = r.status; throw e; }
-  return j;
-}
-
-/* ---------- gate ---------- */
-async function start() {
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) { $('#gate').hidden = false; return; }
-  try { await load(); $('#who').textContent = session.user.email; $('#appv').hidden = false; $('#gate').hidden = true; }
-  catch (e) {
-    if (e.status === 403 || e.status === 401) { await sb.auth.signOut(); gateErr(e.status === 403 ? 'هذا الحساب ليس حساب مزود.' : 'انتهت الجلسة، سجّل الدخول مجددًا.'); }
-    else { $('#appv').hidden = false; $('#list').innerHTML = `<div class="empty"><b>تعذّر التحميل</b>${esc(e.message)}</div>`; }
-  }
-}
-function gateErr(m) { $('#gate').hidden = false; $('#appv').hidden = true; $('#gErr').textContent = m; $('#gErr').hidden = !m; $('#gBtn').disabled = false; }
-$('#gForm').addEventListener('submit', async e => {
-  e.preventDefault(); $('#gBtn').disabled = true; $('#gErr').hidden = true;
-  const { error } = await sb.auth.signInWithPassword({ email: $('#gEmail').value.trim(), password: $('#gPass').value });
-  if (error) return gateErr('البريد أو كلمة المرور غير صحيحة');
-  $('#gPass').value = ''; start();
-});
-$('#logout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
-$('#reload').onclick = () => load().then(() => toast('تم التحديث')).catch(e => toast(e.message));
-
-/* ---------- list ---------- */
-async function load() { const r = await call('overview'); DATA = r.clinics; render(); }
-const STATUS = { active: ['ok', 'فعّال'], expiring: ['warn', 'ينتهي قريبًا'], grace: ['bad', 'مهلة 3 أيام'], expired: ['bad', 'منتهٍ — للاطلاع فقط'], suspended: ['bad', 'موقوف'], none: ['n', 'بلا اشتراك'] };
-function daysTxt(c) {
-  if (c.subscription?.plan === LIFETIME) return 'دائمي';
-  if (c.daysLeft == null) return '';
-  return c.daysLeft >= 0 ? `باقي ${c.daysLeft} يوم` : `منذ ${-c.daysLeft} يوم`;
-}
-function render() {
-  const n = s => DATA.filter(c => s.includes(c.status)).length;
-  $('#kpis').innerHTML = `<div class="kpi"><div class="l">كل العيادات</div><div class="v">${DATA.length}</div></div>
-    <div class="kpi"><div class="l">فعّالة</div><div class="v">${n(['active', 'none'])}</div></div>
-    <div class="kpi ${n(['expiring', 'grace']) ? 'warn' : ''}"><div class="l">تنتهي خلال 7 أيام</div><div class="v">${n(['expiring', 'grace'])}</div></div>
-    <div class="kpi bad"><div class="l">منتهية / موقوفة</div><div class="v">${n(['expired', 'suspended'])}</div></div>`;
-  const q = $('#q').value.trim().toLowerCase();
-  const rows = DATA.filter(c => filter === 'all' || (filter === 'expiring' ? ['expiring', 'grace'].includes(c.status) : ['expired', 'suspended'].includes(c.status)))
-    .filter(c => !q || [c.name, c.subscription?.owner_phone, ...c.members.map(m => m.username + ' ' + m.display_name)].join(' ').toLowerCase().includes(q));
-  if (!DATA.length) { $('#list').innerHTML = `<div class="tbl"><div class="empty"><b>لا عيادات بعد</b>أضف أول نسخة مبيعة من «+ عيادة جديدة».</div></div>`; return; }
-  if (!rows.length) { $('#list').innerHTML = `<div class="tbl"><div class="empty">لا نتائج.</div></div>`; return; }
-  $('#list').innerHTML = `<div class="tbl"><table><thead><tr><th>العيادة</th><th>الحسابات</th><th>الاشتراك</th><th>ينتهي</th><th>المرضى</th><th>آخر نشاط</th><th></th></tr></thead><tbody>${rows.map(c => {
-    const s = c.subscription || {}, [cls, lbl] = STATUS[c.status] || STATUS.none, admin = c.members.find(m => m.role === 'admin');
-    return `<tr><td><b>${esc(c.name || 'بلا اسم')}</b><span class="s ltr" style="text-align:start">${esc(s.owner_phone || '')}</span></td>
-      <td>${admin ? `<span class="ltr">${esc(admin.username)}</span>` : '<span class="muted">—</span>'}<span class="s">${c.members.length} حساب</span></td>
-      <td><span class="pill p-${cls}">${lbl}</span><span class="s">${esc(s.plan || '')}${s.price ? ' · ' + NF.format(s.price) + ' د.ع' : ''}</span></td>
-      <td>${s.plan === LIFETIME ? '—' : fmtD(s.expires_at)}<span class="s">${daysTxt(c)}</span></td>
-      <td>${NF.format(c.patients || 0)}</td>
-      <td>${c.last_activity ? fmtD(c.last_activity) : '<span class="muted">لم تُستخدم</span>'}</td>
-      <td><div class="acts">${s.plan !== LIFETIME ? `<button class="btn sm primary" data-a="extend" data-id="${c.clinic_id}">تجديد</button>` : ''}<button class="btn sm" data-a="edit" data-id="${c.clinic_id}">الاشتراك</button><button class="btn sm" data-a="members" data-id="${c.clinic_id}">الحسابات</button><button class="btn sm" data-a="export" data-id="${c.clinic_id}">نسخة</button><button class="btn sm danger" data-a="del" data-id="${c.clinic_id}">حذف</button></div></td></tr>`;
-  }).join('')}</tbody></table></div>`;
-}
-$('#q').addEventListener('input', render);
-$('#filt').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; filter = b.dataset.f; document.querySelectorAll('#filt button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); render(); });
-$('#list').addEventListener('click', e => { const b = e.target.closest('button[data-a]'); if (b) ACTS[b.dataset.a](DATA.find(c => c.clinic_id === b.dataset.id)); });
-$('#newClinic').onclick = () => ACTS.create();
-
-/* ---------- dialogs ---------- */
-function openDlg(title, html, submit) {
-  $('#dTitle').textContent = title; $('#dBody').innerHTML = html; dlg.showModal();
-  const f = $('#dBody form');
-  if (f && submit) f.onsubmit = async e => {
-    e.preventDefault();
-    const btn = f.querySelector('[type=submit]'), er = f.querySelector('.err');
-    btn.disabled = true; if (er) er.hidden = true;
-    try { if (await submit(Object.fromEntries(new FormData(f)), f) !== false) dlg.close(); }
-    catch (x) { if (er) { er.textContent = x.message; er.hidden = false; } else toast(x.message); }
-    finally { btn.disabled = false; }
-  };
-}
-const foot = (label, cls = 'primary') => `<div class="err full" hidden></div><div class="foot"><button class="btn ${cls}" type="submit">${label}</button><button class="btn" type="button" onclick="dlg.close()">إلغاء</button></div>`;
-const planOpts = sel => PLANS.map(p => `<option ${p === sel ? 'selected' : ''}>${p}</option>`).join('');
-function planSync(f) {
-  const plan = f.querySelector('[name=plan]'), exp = f.querySelector('[name=expiresAt]');
-  plan.addEventListener('change', () => {
-    exp.closest('label').hidden = plan.value === LIFETIME;
-    if (PLAN_MONTHS[plan.value] && f.dataset.auto) exp.value = addMonths(isoToday(), PLAN_MONTHS[plan.value]);
-  });
-  exp.closest('label').hidden = plan.value === LIFETIME;
-}
-
-const ACTS = {
-  create() {
-    openDlg('عيادة جديدة', `<form class="form" data-auto="1">
-      <label class="full">اسم العيادة *<input name="clinicName" required placeholder="عيادة د. أحمد للباطنية"></label>
-      <label>اسم الطبيب<input name="doctorName" placeholder="أحمد علي"></label>
-      <label>الاختصاص<input name="specialty" placeholder="باطنية"></label>
-      <label>هاتف صاحب العيادة<input name="ownerPhone" dir="ltr" placeholder="07XX XXX XXXX"></label>
-      <label>المحافظة<input name="province" value="بغداد"></label>
-      <div class="sec">حساب الطبيب (مدير العيادة)</div>
-      <label>اسم المستخدم *<input name="adminUsername" required dir="ltr" pattern="[a-zA-Z0-9._\\-]{3,30}" placeholder="dr.ahmed" autocomplete="off"></label>
-      <label>كلمة المرور *<input name="adminPassword" required minlength="8" dir="ltr" autocomplete="new-password" placeholder="8 أحرف على الأقل"></label>
-      <div class="sec">الاشتراك</div>
-      <label>الخطة<select name="plan">${planOpts('شهري')}</select></label>
-      <label>ينتهي في<input name="expiresAt" type="date" value="${addMonths(isoToday(), 1)}"></label>
-      <label>السعر (د.ع)<input name="price" type="number" min="0" step="any" placeholder="0"></label>
-      <label>ملاحظات<input name="notes"></label>
-      <div class="hint full">أرسل اسم المستخدم وكلمة المرور ورابط البرنامج للطبيب. يستطيع تغيير كلمة المرور من «حسابي».</div>
-      ${foot('إنشاء العيادة')}</form>`, async d => {
-      d.adminName = d.doctorName ? 'د. ' + d.doctorName : d.clinicName;
-      await call('create_clinic', d); toast('أُنشئت العيادة'); await load();
-    });
-    planSync($('#dBody form'));
-  },
-  extend(c) {
-    const s = c.subscription || {};
-    const base = s.expires_at && s.expires_at > isoToday() ? s.expires_at : isoToday();
-    openDlg('تجديد اشتراك ' + (c.name || ''), `<form class="form">
-      <p class="full" style="margin:0">ينتهي حاليًا: <b>${fmtD(s.expires_at)}</b>. التجديد يبدأ من ${s.expires_at && s.expires_at > isoToday() ? 'تاريخ الانتهاء' : 'اليوم'}، ويرفع الإيقاف إن وُجد.</p>
-      <label class="full">مدة التجديد<select name="months">${[1, 2, 3, 6, 12].map(m => `<option value="${m}" ${m === (PLAN_MONTHS[s.plan] || 1) ? 'selected' : ''}>${m === 12 ? 'سنة' : m + (m > 2 ? ' أشهر' : m === 2 ? ' شهران' : ' شهر')} — حتى ${fmtD(addMonths(base, m))}</option>`).join('')}</select></label>
-      ${foot('تجديد')}</form>`, async d => {
-      const r = await call('extend', { clinicId: c.clinic_id, months: +d.months });
-      toast('جُدّد حتى ' + fmtD(r.expires_at)); await load();
-    });
-  },
-  edit(c) {
-    const s = c.subscription || {};
-    openDlg('اشتراك ' + (c.name || ''), `<form class="form">
-      <label class="full">اسم العيادة<input name="clinicName" value="${esc(c.name)}"></label>
-      <label>هاتف صاحب العيادة<input name="ownerPhone" dir="ltr" value="${esc(s.owner_phone)}"></label>
-      <label>السعر (د.ع)<input name="price" type="number" min="0" step="any" value="${esc(s.price ?? '')}"></label>
-      <label>الخطة<select name="plan">${planOpts(s.plan || 'شهري')}</select></label>
-      <label>ينتهي في<input name="expiresAt" type="date" value="${esc(s.expires_at || '')}"></label>
-      <label class="full">ملاحظات<textarea name="notes" rows="2">${esc(s.notes)}</textarea></label>
-      <label class="chk full"><input type="checkbox" name="suspended" ${s.suspended ? 'checked' : ''}> إيقاف العيادة (تبقى البيانات للاطلاع فقط)</label>
-      ${foot('حفظ')}</form>`, async d => {
-      await call('update_subscription', { clinicId: c.clinic_id, ...d, suspended: !!d.suspended }); toast('حُفظ'); await load();
-    });
-    planSync($('#dBody form'));
-  },
-  members(c) {
-    const li = m => `<li><div class="g"><b>${esc(m.display_name || m.username)}</b> <span class="pill ${m.role === 'admin' ? 'p-info' : 'p-n'}">${m.role === 'admin' ? 'طبيب / مدير' : 'سكرتير'}</span>${m.disabled ? ' <span class="pill p-bad">معطّل</span>' : ''}<div class="muted ltr" style="text-align:start;font-size:.85rem">${esc(m.username)} · ${m.last_sign_in_at ? 'آخر دخول ' + fmtD(m.last_sign_in_at) : 'لم يدخل بعد'}</div></div>
-      <button class="btn sm" type="button" data-m="pw" data-u="${m.user_id}">كلمة المرور</button>
-      <button class="btn sm" type="button" data-m="role" data-u="${m.user_id}">${m.role === 'admin' ? 'جعله سكرتير' : 'جعله مديرًا'}</button>
-      <button class="btn sm" type="button" data-m="dis" data-u="${m.user_id}">${m.disabled ? 'تفعيل' : 'تعطيل'}</button>
-      <button class="btn sm danger" type="button" data-m="del" data-u="${m.user_id}">حذف</button></li>`;
-    openDlg('حسابات ' + (c.name || ''), `<ul class="mem">${c.members.map(li).join('') || '<li class="muted">لا حسابات</li>'}</ul>
-      <form class="form"><div class="sec" style="border:0;padding:0">حساب جديد</div>
-      <label>الاسم الظاهر *<input name="name" required placeholder="سارة (الاستقبال)"></label>
-      <label>الصلاحية<select name="role"><option value="staff">سكرتير / موظف</option><option value="admin">طبيب / مدير</option></select></label>
-      <label>اسم المستخدم *<input name="username" required dir="ltr" pattern="[a-zA-Z0-9._\\-]{3,30}" autocomplete="off"></label>
-      <label>كلمة المرور *<input name="password" required minlength="8" dir="ltr" autocomplete="new-password"></label>
-      <div class="hint full">السكرتير لا يرى التقارير والإعدادات، ولا يعدّل بيانات العيادة.</div>
-      ${foot('إضافة الحساب')}</form>`, async d => {
-      await call('add_member', { clinicId: c.clinic_id, ...d }); toast('أُضيف الحساب'); await load();
-      ACTS.members(DATA.find(x => x.clinic_id === c.clinic_id)); return false;
-    });
-    $('#dBody .mem').onclick = async e => {
-      const b = e.target.closest('button[data-m]'); if (!b) return;
-      const m = c.members.find(x => x.user_id === b.dataset.u);
-      try {
-        if (b.dataset.m === 'pw') {
-          const p = prompt(`كلمة مرور جديدة لـ ${m.username} (8 أحرف على الأقل):`); if (!p) return;
-          await call('reset_password', { userId: m.user_id, password: p }); toast('تغيّرت كلمة المرور'); return;
-        }
-        if (b.dataset.m === 'del' && !confirm(`حذف حساب ${m.username} نهائيًا؟ تبقى بيانات العيادة كما هي.`)) return;
-        b.disabled = true;
-        if (b.dataset.m === 'role') await call('set_role', { userId: m.user_id, role: m.role === 'admin' ? 'staff' : 'admin' });
-        if (b.dataset.m === 'dis') await call('set_disabled', { userId: m.user_id, disabled: !m.disabled });
-        if (b.dataset.m === 'del') await call('delete_member', { userId: m.user_id });
-        toast('تم'); await load(); ACTS.members(DATA.find(x => x.clinic_id === c.clinic_id));
-      } catch (x) { b.disabled = false; toast(x.message); }
-    };
-  },
-  async export(c) {
-    try {
-      toast('جارٍ تجهيز النسخة…');
-      const data = await call('export_clinic', { clinicId: c.clinic_id });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }));
-      a.download = `نسخة-${(c.name || 'عيادة').replace(/[\\/:*?"<>|]/g, '')}-${isoToday()}.json`;
-      document.body.appendChild(a); a.click(); a.remove();
-    } catch (x) { toast(x.message); }
-  },
-  del(c) {
-    openDlg('حذف العيادة نهائيًا', `<form class="form"><p class="full" style="margin:0">سيُحذف <b>${esc(c.name)}</b> مع <b>كل</b> حساباتها ومرضاها وسجلاتها ومرفقاتها، ولا يمكن التراجع. نزّل نسخة احتياطية أولًا إن احتجت.</p>
-      <label class="full">اكتب «حذف» للتأكيد<input name="confirm" autocomplete="off"></label>${foot('حذف نهائي', 'danger-fill')}</form>`, async d => {
-      await call('delete_clinic', { clinicId: c.clinic_id, confirm: d.confirm.trim() }); toast('حُذفت العيادة'); await load();
-    });
-  }
-};
-start();
-</script>
+  <script src="vendor/supabase-js-2.45.4.js"></script>
+  <script src="cloud.js?v=202610290"></script>
+  <script src="provider.js?v=202610290"></script>
 </body>
 </html>

@@ -235,3 +235,137 @@ revoke all on function public.clinic_provider_stats() from public, anon, authent
 -- 1) أنشئ حسابك من Authentication ← Users ← Add user (بريدك الحقيقي وكلمة مرور قوية)
 -- 2) غيّر البريد في السطر التالي ثم شغّله:
 -- insert into public.providers (user_id) select id from auth.users where email = 'you@example.com' on conflict do nothing;
+
+-- ============================================================
+-- الأجهزة: كل جهاز (متصفح) يدخل للعيادة يُسجَّل، والطبيب يسمّيه أو يوقفه،
+-- والمزود يحدد الحد الأعلى لعدد أجهزة العيادة. العيادة التي ليس لها حد = بلا حد.
+-- الجهاز الذي لم يُستخدم 30 يومًا والجهاز الموقوف لا يُحسبان من الحد.
+-- الطبيب (admin) لا يُمنع بسبب الحد حتى يستطيع إيقاف جهاز قديم، لكن جهازه يُحسب.
+-- ============================================================
+create table if not exists public.clinic_device_plans (
+    clinic_id uuid primary key references public.clinics (id) on delete cascade,
+    device_limit int not null default 0, -- 0 = بلا حد
+    updated_at timestamptz not null default now(),
+    constraint clinic_device_plans_limit check (device_limit >= 0 and device_limit <= 1000)
+);
+alter table public.clinic_device_plans enable row level security;
+
+drop policy if exists clinic_device_plans_select on public.clinic_device_plans;
+create policy clinic_device_plans_select on public.clinic_device_plans
+    for select to authenticated
+    using (public.is_clinic_member(clinic_id));
+
+create table if not exists public.clinic_devices (
+    id uuid primary key default gen_random_uuid(),
+    clinic_id uuid not null references public.clinics (id) on delete cascade,
+    device_id text not null,
+    user_id uuid,
+    username text not null default '',
+    display_name text not null default '',
+    label text not null default '',      -- اسم يضعه الطبيب: «حاسبة الاستقبال»
+    platform text not null default '',
+    browser text not null default '',
+    model text not null default '',
+    installed boolean not null default false,
+    first_seen timestamptz not null default now(),
+    last_seen timestamptz not null default now(),
+    revoked boolean not null default false,
+    revoked_at timestamptz,
+    unique (clinic_id, device_id)
+);
+create index if not exists clinic_devices_clinic_idx on public.clinic_devices (clinic_id, last_seen desc);
+alter table public.clinic_devices enable row level security;
+
+drop policy if exists clinic_devices_select on public.clinic_devices;
+drop policy if exists clinic_devices_update on public.clinic_devices;
+drop policy if exists clinic_devices_delete on public.clinic_devices;
+
+-- الطبيب يرى أجهزة عيادته، والسكرتير يرى أجهزته فقط
+create policy clinic_devices_select on public.clinic_devices
+    for select to authenticated
+    using (public.is_clinic_admin(clinic_id) or user_id = auth.uid());
+
+create policy clinic_devices_update on public.clinic_devices
+    for update to authenticated
+    using (public.is_clinic_admin(clinic_id))
+    with check (public.is_clinic_admin(clinic_id));
+
+create policy clinic_devices_delete on public.clinic_devices
+    for delete to authenticated
+    using (public.is_clinic_admin(clinic_id));
+
+-- الطبيب لا يغيّر إلا الاسم والإيقاف
+revoke update on public.clinic_devices from authenticated;
+grant update (label, revoked, revoked_at) on public.clinic_devices to authenticated;
+grant select, delete on public.clinic_devices to authenticated;
+grant select on public.clinic_device_plans to authenticated;
+
+-- تسجيل الجهاز وتحديث آخر نشاط
+-- يعيد: ok | revoked (أوقفه الطبيب) | limit (وصلت العيادة للحد) | not_member | bad
+create or replace function public.clinic_device_checkin(
+    p_clinic uuid,
+    p_device text,
+    p_platform text default '',
+    p_browser text default '',
+    p_model text default '',
+    p_installed boolean default false
+)
+returns jsonb
+language plpgsql security definer set search_path = public
+as $$
+declare
+    m record;
+    d_found boolean;
+    d_revoked boolean;
+    d_last timestamptz;
+    lim int := 0;
+    used int := 0;
+    stale boolean;
+begin
+    select role, username, display_name into m
+      from clinic_members where clinic_id = p_clinic and user_id = auth.uid();
+    if not found then
+        return jsonb_build_object('status', 'not_member');
+    end if;
+    if p_device is null or length(p_device) < 8 or length(p_device) > 64 then
+        return jsonb_build_object('status', 'bad');
+    end if;
+
+    -- حتى لا يتجاوز جهازان الحد معًا في نفس اللحظة
+    perform pg_advisory_xact_lock(hashtext('clinic_devices:' || p_clinic::text));
+
+    select coalesce(device_limit, 0) into lim from clinic_device_plans where clinic_id = p_clinic;
+    lim := coalesce(lim, 0);
+    select count(*) into used from clinic_devices
+     where clinic_id = p_clinic and not revoked and last_seen > now() - interval '30 days';
+
+    select revoked, last_seen into d_revoked, d_last
+      from clinic_devices where clinic_id = p_clinic and device_id = p_device;
+    d_found := found;
+    if d_found and d_revoked then
+        return jsonb_build_object('status', 'revoked', 'limit', lim, 'used', used);
+    end if;
+
+    stale := not d_found or d_last <= now() - interval '30 days';
+    if stale and lim > 0 and used >= lim and m.role <> 'admin' then
+        return jsonb_build_object('status', 'limit', 'limit', lim, 'used', used);
+    end if;
+
+    insert into clinic_devices (clinic_id, device_id, user_id, username, display_name, platform, browser, model, installed)
+    values (p_clinic, p_device, auth.uid(), m.username, m.display_name,
+            left(coalesce(p_platform, ''), 40), left(coalesce(p_browser, ''), 40), left(coalesce(p_model, ''), 60), coalesce(p_installed, false))
+    on conflict (clinic_id, device_id) do update set
+        user_id = excluded.user_id,
+        username = excluded.username,
+        display_name = excluded.display_name,
+        platform = excluded.platform,
+        browser = excluded.browser,
+        model = case when excluded.model <> '' then excluded.model else clinic_devices.model end,
+        installed = excluded.installed,
+        last_seen = now();
+
+    return jsonb_build_object('status', 'ok', 'limit', lim, 'used', used + case when stale then 1 else 0 end, 'new', stale);
+end;
+$$;
+revoke all on function public.clinic_device_checkin(uuid, text, text, text, text, boolean) from public, anon;
+grant execute on function public.clinic_device_checkin(uuid, text, text, text, text, boolean) to authenticated;
