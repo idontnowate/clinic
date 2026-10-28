@@ -29,7 +29,8 @@ const fmtWeekday = s => fmtWith(s, { weekday: 'long' });
 const fmtDayFull = s => fmtWith(s, { weekday: 'long', day: 'numeric', month: 'long' });
 const fmtMonth = k => fmtWith(k + '-01', { month: 'long', year: 'numeric' });
 const fmtMonthShort = k => fmtWith(k + '-01', { month: 'short' });
-const fmtTime = t => { if (!t) return ''; let [h, m] = t.split(':').map(Number); const s = h < 12 ? 'ص' : 'م'; h = h % 12 || 12; return `${h}:${pad(m)} ${s}`; };
+// «24:00» = منتصف الليل، نهاية دوام العيادات المسائية
+const fmtTime = t => { if (!t) return ''; let [h, m] = t.split(':').map(Number); if (h >= 24) return '12:00 منتصف الليل'; const s = h < 12 ? 'ص' : 'م'; h = h % 12 || 12; return `${h}:${pad(m)} ${s}`; };
 const fmtTs = ts => { if (!ts) return ''; const d = new Date(ts); return fmtTime(`${pad(d.getHours())}:${pad(d.getMinutes())}`); };
 const tmin = t => { if (!t) return 0; const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
 const mtime = m => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
