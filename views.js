@@ -16,10 +16,8 @@ function waitMins(a) { return a.arrivedAt ? Math.max(0, Math.round((Date.now() -
 
 /* ================= TODAY ================= */
 VIEWS.home = {
-  shell: () => `<div class="head"><div class="grow"><h1>${greeting()}${S.doctorName ? '، ' + esc(docName()) : ''}</h1><div class="sub">${esc(fmtDayFull(today()))}${isWorkDay(today()) ? ` · الدوام ${esc(fmtTime(S.start))} – ${esc(fmtTime(S.end))}` : ' · ليس يوم عمل في الجدول'}</div></div>
-    <button class="btn ghost" data-act="tv" data-tip="اعرضها على تلفزيون صالة الانتظار">${icon('<rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>')}شاشة الانتظار</button>
-    <button class="btn ghost" data-act="cashClose">${icon('<rect x="3" y="7" width="18" height="12" rx="2"/><path d="M3 11h18M7 15h3"/>')}كشف الصندوق</button>
-    ${W() ? `<button class="btn" data-act="walkIn">${icon('<path d="M12 5v14M5 12h14"/>')}مريض حضر بدون موعد</button>` : ''}</div><div id="vbody"></div>`,
+  // الرأس داخل body حتى تتحدث الساعة والموعد القادم كل دقيقة
+  shell: () => `<div id="vbody"></div>`,
   body() {
     const t = today();
     const ap = D.appointments.filter(a => a.date === t).sort(byTime);
@@ -30,20 +28,54 @@ VIEWS.home = {
     const paidToday = sum(D.invoices, i => sum((i.payments || []).filter(p => p.date === t), p => p.amount));
     const visitsToday = D.visits.filter(v => v.date === t).length;
     const remaining = c('booked') + c('confirmed');
-    let h = '';
+    const now = new Date(), nowT = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const next = act.find(a => ['booked', 'confirmed'].includes(a.status) && a.time >= nowT) || act.find(a => ['booked', 'confirmed'].includes(a.status));
+    const inRoom = act.find(a => a.status === 'in');
+    let h = `<section class="hero">
+      <div class="hero-main">
+        <div class="hero-date">${esc(fmtDayFull(t))}${isWorkDay(t) ? ` · الدوام ${esc(fmtTime(S.start))} – ${esc(fmtTime(S.end))}` : ' · ليس يوم عمل'}</div>
+        <h1>${greeting()}${S.doctorName ? '، ' + esc(docName()) : ''}</h1>
+        <p>${act.length ? `عندك اليوم <b>${act.length}</b> موعد${waiting.length ? `، و<b>${waiting.length}</b> بالانتظار الآن` : ''}.` : 'لا مواعيد اليوم بعد. احجز موعدًا أو سجّل مريضًا حضر بدون موعد.'}</p>
+        <div class="hero-acts">
+          ${W() ? `<button class="btn primary" data-act="newAppt">${icon('<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M12 13v5M9.5 15.5h5"/>')}موعد جديد</button>
+          <button class="btn" data-act="walkIn">${icon('<path d="M12 5v14M5 12h14"/>')}حضر بدون موعد</button>` : ''}
+          <button class="btn" data-act="tv">${icon(ICONS.tv)}شاشة الانتظار</button>
+          <button class="btn" data-act="cashClose">${icon('<rect x="3" y="7" width="18" height="12" rx="2"/><path d="M3 11h18M7 15h3"/>')}كشف الصندوق</button>
+        </div>
+      </div>
+      <div class="hero-side">
+        <div class="hero-clock">${esc(fmtTime(nowT))}</div>
+        <div class="hero-next">${inRoom ? `<span>في غرفة الكشف</span><b>${esc(pName(inRoom.patientId))}</b><small>منذ ${esc(fmtTime(inRoom.time))}</small>`
+          : next ? `<span>الموعد القادم</span><b>${esc(pName(next.patientId))}</b><small>${esc(fmtTime(next.time))} · ${esc(APPT_TYPES[next.type] || '')}</small>`
+          : '<span>الموعد القادم</span><b>لا يوجد</b><small>الجدول فارغ لبقية اليوم</small>'}</div>
+      </div>
+    </section>`;
+    const kpi = (cls, ic, l, v, hint, extra = '') => `<div class="kpi ${extra}"><span class="kic ${cls}">${icon(ic)}</span><div class="l">${l}</div><div class="v">${v}</div><div class="h">${hint}</div></div>`;
     h += setupCard();
     h += `<div class="kpis">
-      <div class="kpi"><div class="l">مواعيد اليوم</div><div class="v">${act.length}</div><div class="h">${remaining} لم يصلوا بعد</div></div>
-      <div class="kpi ${waiting.length ? 'hl' : ''}"><div class="l">في صالة الانتظار</div><div class="v">${waiting.length}</div><div class="h">${waiting.length ? `أطول انتظار ${longest} دقيقة` : 'لا أحد ينتظر'}</div></div>
-      <div class="kpi"><div class="l">كشوفات اليوم</div><div class="v">${visitsToday}</div><div class="h">${c('in') ? 'مريض في غرفة الكشف الآن' : '&nbsp;'}</div></div>
-      <div class="kpi"><div class="l">المحصَّل اليوم</div><div class="v">${num(paidToday)} <small>${esc(S.currency)}</small></div><div class="h">من ${D.invoices.filter(i => i.date === t).length} فاتورة</div></div>
+      ${kpi('k-info', ICONS.calendar, 'مواعيد اليوم', act.length, `${remaining} لم يصلوا بعد`)}
+      ${kpi('k-warn', '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>', 'في صالة الانتظار', waiting.length, waiting.length ? `أطول انتظار ${longest} دقيقة` : 'لا أحد ينتظر', waiting.length ? 'hl' : '')}
+      ${kpi('k-violet', '<path d="M9 4h6v3H9z"/><path d="M7 5.5H5.5v15h13v-15H17"/><path d="M9 12h6M9 16h4"/>', 'كشوفات اليوم', visitsToday, c('in') ? 'مريض في غرفة الكشف الآن' : 'منذ بداية الدوام')}
+      ${kpi('k-ok', ICONS.finance, 'المحصَّل اليوم', `${num(paidToday)} <small>${esc(S.currency)}</small>`, `من ${D.invoices.filter(i => i.date === t).length} فاتورة`)}
     </div>`;
     h += `<div class="split"><div class="stack">`;
     h += `<section class="panel"><div class="ph"><h3>طابور اليوم</h3><span class="muted">${ap.length} موعد${ap.length - act.length ? ` · ${ap.length - act.length} ملغى/غائب` : ''}</span></div>
-      ${ap.length ? `<ul class="q">${ap.map(qRow).join('')}</ul>` : emptyBox('لا مواعيد اليوم', '<br>احجز موعدًا أو سجّل مريضًا حضر بدون موعد.', 'newAppt', 'حجز موعد')}</section>`;
+      ${ap.length ? `<ul class="q">${ap.map(qRow).join('')}</ul>` : `<div class="empty big"><span class="empty-ic">${icon(ICONS.calendar)}</span><b>لا مواعيد اليوم</b>المواعيد التي تحجزها تظهر هنا بالترتيب، ومنها تستقبل المريض وتفتح شاشة الكشف.${W() ? `<div class="empty-acts"><button class="btn primary" data-act="newAppt">حجز موعد</button><button class="btn" data-act="walkIn">مريض حضر بدون موعد</button></div>` : ''}</div>`}</section>`;
     const recent = [...D.visits].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 6);
-    h += `<section class="panel"><div class="ph"><h3>آخر الكشوفات</h3></div>${recent.length ? `<ul class="list">${recent.map(v => `<li><div class="grow"><button class="link" data-act="openPatient" data-id="${v.patientId}">${esc(pName(v.patientId))}</button><div class="s">${esc((v.diagnoses || []).join('، ') || v.complaint || 'بدون تشخيص')}</div></div><span class="muted" style="font-size:.82rem">${esc(fmtShort(v.date))}</span></li>`).join('')}</ul>` : `<div class="empty">ستظهر هنا آخر الكشوفات المسجلة.</div>`}</section>`;
+    h += `<section class="panel"><div class="ph"><h3>آخر الكشوفات</h3></div>${recent.length ? `<ul class="list">${recent.map(v => `<li><div class="grow"><button class="link" data-act="openPatient" data-id="${v.patientId}">${esc(pName(v.patientId))}</button><div class="s">${esc((v.diagnoses || []).join('، ') || v.complaint || 'بدون تشخيص')}</div></div><span class="muted" style="font-size:.82rem">${esc(fmtShort(v.date))}</span></li>`).join('')}</ul>` : `<div class="empty"><span class="empty-ic">${icon('<path d="M9 4h6v3H9z"/><path d="M7 5.5H5.5v15h13v-15H17"/><path d="M9 12h6M9 16h4"/>')}</span><b>لا كشوفات بعد</b>بعد كل كشف يظهر هنا المريض وتشخيصه، للرجوع إليه بسرعة.</div>`}</section>`;
     h += `</div><div class="stack">`;
+    // ملخص الشهر: يعطي صورة سريعة حتى في الأيام الهادئة
+    const mk = thisMonth(), inM = d => monthKey(d) === mk;
+    const newPts = D.patients.filter(p => p.createdAt && inM(isoDate(new Date(p.createdAt)))).length;
+    const mVisits = D.visits.filter(v => inM(v.date)).length;
+    const mIncome = sum(D.invoices, i => sum((i.payments || []).filter(p => inM(p.date)), p => p.amount));
+    const mDue = sum(D.invoices, i => invCalc(i).due);
+    h += `<section class="panel"><div class="ph"><h3>هذا الشهر</h3><span class="muted">${esc(fmtMonth(mk))}</span></div><div class="pb"><div class="mini">
+      <div><span>المرضى</span><b>${num(D.patients.length)}</b><small>${newPts ? `+${newPts} جديد` : 'لا جديد'}</small></div>
+      <div><span>الكشوفات</span><b>${num(mVisits)}</b><small>هذا الشهر</small></div>
+      <div><span>المحصَّل</span><b>${num(mIncome)}</b><small>${esc(S.currency)}</small></div>
+      <div><span>ديون المرضى</span><b class="${mDue ? 'bad' : ''}">${num(mDue)}</b><small>${esc(S.currency)}</small></div>
+    </div>${app.role === 'admin' ? '<button class="btn sm ghost" data-act="nav" data-id="reports" style="margin-top:10px">التقارير الكاملة</button>' : ''}</div></section>`;
     // quick booking
     const fs = freeSlots(t, true).slice(0, 8);
     const nx = fs.length ? null : nextFreeSlot(addDays(t, 1));
