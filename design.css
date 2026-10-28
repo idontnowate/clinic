@@ -137,7 +137,8 @@ html.nav-collapsed .net { justify-content: center; padding-inline: 0 }
 .banner .grow { flex: 1; min-width: 200px }
 .demo-cta { background: #1faa59; color: #fff !important; border-radius: 999px; padding: 7px 16px; font-weight: 700; text-decoration: none; font-size: .88rem; white-space: nowrap }
 .demo-exit { background: transparent; color: inherit; border: 1px solid currentColor; border-radius: 999px; padding: 6px 14px; font-weight: 600; cursor: pointer; font-size: .86rem; white-space: nowrap }
-#view { padding: 18px 28px 90px; padding-left: max(28px, env(safe-area-inset-left, 0px)); max-width: 1360px; width: 100% }
+#view { padding: 18px 28px 90px; padding-left: max(28px, env(safe-area-inset-left, 0px)); max-width: 1680px; width: 100%; margin-inline: auto }
+#banner { max-width: 1680px; width: 100%; margin-inline: auto }
 
 /* ===== العناصر الأساسية ===== */
 input, select, textarea { background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 8px 12px; min-width: 0; font-size: .95rem; color: var(--text); transition: border-color var(--dur-1), box-shadow var(--dur-1) }
@@ -200,7 +201,7 @@ textarea { resize: vertical; min-height: 76px; line-height: 1.6 }
 .stack{display:flex;flex-direction:column;gap:16px;min-width:0}
 .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
-.split{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,32%);gap:16px;align-items:start}
 
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
 .kpis.k3{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -485,6 +486,44 @@ body.tv-mode #view{max-width:none;padding:0}
 
 
 .p-info{background:var(--info-soft);color:var(--info-text)}
+
+/* ===== الصفحة الرئيسية ===== */
+.hero { background: var(--hero-bg); color: var(--hero-text); border-radius: var(--radius); padding: 24px 26px; display: flex; justify-content: space-between; gap: 24px; margin-bottom: 16px; flex-wrap: wrap; box-shadow: var(--shadow-md); position: relative; overflow: hidden }
+.hero::after { content: ""; position: absolute; inset: auto -60px -120px auto; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(closest-side, rgba(60, 207, 152, .22), transparent); pointer-events: none }
+.hero-main { min-width: 0; flex: 1 1 420px; position: relative; z-index: 1 }
+.hero-date { color: var(--hero-muted); font-size: .88rem }
+.hero h1 { margin: 4px 0 6px; font-size: 1.75rem; line-height: 1.3; letter-spacing: -.01em }
+.hero p { margin: 0 0 16px; color: var(--hero-muted) }
+.hero p b { color: var(--hero-text) }
+.hero-acts { display: flex; gap: 8px; flex-wrap: wrap }
+.hero .btn { background: rgba(255, 255, 255, .1); border-color: rgba(255, 255, 255, .16); color: var(--hero-text) }
+.hero .btn:hover { background: rgba(255, 255, 255, .18) }
+.hero .btn.primary { background: #fff; border-color: #fff; color: #0b0c0e }
+html[data-glass="on"] .hero .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff }
+.hero-side { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 12px; position: relative; z-index: 1; min-width: 220px }
+.hero-clock { font-size: 2.3rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em }
+.hero-next { background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .12); border-radius: 12px; padding: 10px 14px; min-width: 220px; display: flex; flex-direction: column }
+.hero-next span { color: var(--hero-muted); font-size: .78rem }
+.hero-next b { font-size: 1.05rem }
+.hero-next small { color: var(--hero-muted); font-size: .82rem }
+.kpi { position: relative }
+.kic { position: absolute; top: 14px; inset-inline-end: 14px; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center }
+.kic svg { width: 19px; height: 19px }
+.k-info { background: var(--info-soft); color: var(--info-text) } .k-warn { background: var(--warn-soft); color: var(--warn-text) }
+.k-violet { background: var(--violet-soft); color: var(--violet) } .k-ok { background: var(--accent-soft); color: var(--accent-text) }
+.kpi.hl .kic { background: var(--surface); }
+.mini { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px }
+.mini > div { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; min-width: 0 }
+.mini span { color: var(--muted); font-size: .8rem }
+.mini b { font-size: 1.25rem; font-variant-numeric: tabular-nums; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.mini b.bad { color: var(--danger-text) }
+.mini small { color: var(--faint); font-size: .76rem }
+.empty-ic { width: 52px; height: 52px; border-radius: 14px; background: var(--surface-2); color: var(--muted); display: grid; place-items: center; margin: 0 auto 12px }
+.empty-ic svg { width: 24px; height: 24px }
+.empty.big { padding: 46px 24px }
+.empty-acts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 14px }
+.empty-acts .btn { margin-top: 0 }
+@media (max-width: 760px) { .hero { padding: 18px } .hero h1 { font-size: 1.35rem } .hero-side { align-items: stretch; min-width: 0; flex: 1 1 100% } .hero-clock { display: none } .kic { display: none } }
 
 /* ===== الإعدادات: أقسام جانبية مثل المتجر ===== */
 .set-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; align-items: start }
